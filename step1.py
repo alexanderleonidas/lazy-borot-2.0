@@ -25,7 +25,7 @@ maze_grid = np.array([
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
 ])
 GRID_HEIGHT, GRID_WIDTH = maze_grid.shape
-CELL_SIZE = 40  # pixels per cell
+CELL_SIZE = 60  # pixels per cell
 
 # Pygame window size
 WINDOW_WIDTH = GRID_WIDTH * CELL_SIZE
