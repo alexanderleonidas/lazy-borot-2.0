@@ -57,7 +57,8 @@ class Robot:
 
         # Sensor configuration (simulating 3 sensors; can be extended to 12)
         self.sensor_range = 100  # max range in pixels
-        self.sensor_angles = [-math.pi/4, 0, math.pi/4]  # relative sensor directions
+        num_sensors = 12
+        self.sensor_angles = [(2 * math.pi / num_sensors) * i for i in range(num_sensors)]  # relative sensor directions
 
     def update(self, dt, maze):
         """
@@ -192,6 +193,10 @@ def main():
             text_x = int(robot.x + (reading + 10) * math.cos(angle))
             text_y = int(robot.y + (reading + 10) * math.sin(angle))
             screen.blit(text, (text_x, text_y))
+
+
+            # Draw a line from the robot center to the text position (to indicate sensor angle)
+            pygame.draw.line(screen, GREEN, (int(robot.x), int(robot.y)), (text_x, text_y), 1)
 
         pygame.display.flip()
         clock.tick(30)  # run at 30 FPS
