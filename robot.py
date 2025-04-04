@@ -74,14 +74,22 @@ class Robot:
 
         # Finally, update the orientation.
         self.theta = new_theta
-        print(f'Robot Pose: x: {self.x:.2f} | y: {self.y:.2f} | θ:  {self.theta % 2 * math.pi:.2f}')
+        print(f'Robot Pose: x: {self.x:.2f} | y: {self.y:.2f} | θ:  {self.theta:.2f}')
 
     def circle_collides(self, x, y, maze):
         """
         Check if a circle (with center (x, y) and radius self.radius)
-        collides with any obstacle in the maze.
+        collides with any obstacle in the maze or screen boundaries.
         Obstacle cells are assumed to have a value of 1.
         """
+        # First, check collision with screen boundaries
+        if (x - self.radius < 0 or
+                x + self.radius > Config.WINDOW_WIDTH or
+                y - self.radius < 0 or
+                y + self.radius > Config.WINDOW_HEIGHT):
+            return True
+
+        # Then check collision with maze obstacles
         cell_size = Config.CELL_SIZE
         radius = self.radius
 
