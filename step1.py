@@ -2,8 +2,8 @@ import pygame
 from picasso import Picasso
 from config import Config
 from robot import Robot, Action
-
 def main():
+    fps = 30
     pygame.init()
     screen = pygame.display.set_mode((Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT))
     picasso = Picasso(screen)
@@ -23,7 +23,6 @@ def main():
                 # W/S keys control left wheel forward/backward velocity.
                 # O/K keys control right wheel forward/backward velocity.
                 # Space bar stops the robot.
-                # keys = pygame.key.get_pressed()
                 if event.key == pygame.K_o:
                     robot.set_velocity(Action.INCREASE_RIGHT)
                 if event.key == pygame.K_k:
@@ -36,12 +35,12 @@ def main():
                     robot.set_velocity(Action.BREAK)
 
         # Update the robot's state with a fixed time step.
-        dt = 0.1
+        dt = 1/fps
         robot.update_motion(dt, Config.maze_grid)
 
         # --- Rendering ---
         picasso.draw_map(robot)
-        picasso.update_display()
+        picasso.update_display(fps)
     picasso.quit()
 
 if __name__ == "__main__":
