@@ -8,7 +8,7 @@ class EKF:
         Initialize the EKF with an initial state vector [x, y, theta] and covariance.
         """
         self.state = init_state  # Estimated state
-        self.P = np.eye(3) * 5.0  # Initial covariance matrix
+        self.p = np.eye(3) * 5.0  # Initial covariance matrix
 
     def predict(self, control, dt):
         """
@@ -33,13 +33,13 @@ class EKF:
         self.state[2] %= 2 * math.pi
 
         # Jacobian of the motion model with respect to the state (F)
-        F = np.array([[1, 0, -v * math.sin(theta) * dt],
+        f = np.array([[1, 0, -v * math.sin(theta) * dt],
                       [0, 1,  v * math.cos(theta) * dt],
                       [0, 0, 1]])
         # Process noise covariance (Q)
-        Q = np.diag([0.1, 0.1, 0.05])
+        q = np.diag([0.1, 0.1, 0.05])
         # Covariance update
-        self.P = F.dot(self.P).dot(F.T) + Q
+        self.p = f.dot(self.p).dot(f.T) + q
 
     def update(self, measurement, maze, sensor_angle):
         """
@@ -80,14 +80,14 @@ class EKF:
             expected_distance_plus += 1
 
         # Derivative of measurement function with respect to theta
-        H_theta = (expected_distance_plus - expected_distance) / delta
+        h_theta = (expected_distance_plus - expected_distance) / delta
         # We assume negligible derivatives with respect to x and y.
-        H = np.array([[0, 0, H_theta]])
-        R = np.array([[1.0]])  # Measurement noise covariance
+        h = np.array([[0, 0, h_theta]])
+        r = np.array([[1.0]])  # Measurement noise covariance
 
-        S = H.dot(self.P).dot(H.T) + R
-        K = self.P.dot(H.T).dot(np.linalg.inv(S))  # Kalman gain
+        s = h.dot(self.p).dot(h.T) + r
+        k = self.p.dot(h.T).dot(np.linalg.inv(s))  # Kalman gain
 
         innovation = measurement - expected_distance
-        self.state = self.state + (K.flatten() * innovation)
-        self.P = (np.eye(3) - K.dot(H)).dot(self.P)
+        self.state = self.state + (k.flatten() * innovation)
+        self.p = (np.eye(3) - k.dot(h)).dot(self.p)

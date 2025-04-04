@@ -20,6 +20,7 @@ class Picasso:
         self._draw_maze()
         self._draw_sensor_readings(robot)
         self._draw_robot(robot)
+        self._draw_velocities(robot.left_velocity, robot.right_velocity)
 
     def _draw_maze(self):
         self.screen.fill(Config.WHITE)
@@ -47,6 +48,10 @@ class Picasso:
             text_y = int(robot.y + (reading + 10) * math.sin(angle))
             self.screen.blit(text, (text_x, text_y))
             pygame.draw.line(self.screen, Config.GREEN, (int(robot.x), int(robot.y)), (text_x, text_y), 1)
+
+    def _draw_velocities(self, l_v, r_v):
+        vel_text = self.small_font.render(f"l_vel: x={l_v:.1f} | r_vel={r_v:.1f}",True, Config.RED)
+        self.screen.blit(vel_text, (Config.WINDOW_WIDTH - 200, 20))
 
     def update_display(self):
         pygame.display.flip()
