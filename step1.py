@@ -2,12 +2,12 @@ import pygame
 from picasso import Picasso
 from config import Config
 from robot import Robot, Action
-
 def main():
+    fps = 30
     pygame.init()
     screen = pygame.display.set_mode((Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT))
     picasso = Picasso(screen)
-    pygame.display.set_caption("Robot Simulator - Localisation")
+    pygame.display.set_caption("Robot Simulator (step 1)")
     # Create a robot instance at the starting position.
     robot = Robot(Config.CELL_SIZE * 1.5, Config.CELL_SIZE * 1.5, 0)
 
@@ -18,32 +18,29 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-
-        # --- Keyboard Controls ---
-        # W/S keys control left wheel forward/backward velocity.
-        # O/K keys control right wheel forward/backward velocity.
-        # Space bar stops the robot.
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_w]:
-            robot.set_velocity(Action.INCREASE_LEFT)
-        elif keys[pygame.K_s]:
-            robot.set_velocity(Action.DECREASE_LEFT)
-        elif keys[pygame.K_o]:
-            robot.set_velocity(Action.INCREASE_RIGHT)
-        elif keys[pygame.K_k]:
-            robot.set_velocity(Action.DECREASE_RIGHT)
-        elif keys[pygame.K_SPACE]:
-            robot.set_velocity(Action.BREAK)
-        else:
-            robot.set_velocity(Action.NOTHING)
+            if event.type == pygame.KEYUP:
+                # --- Keyboard Controls ---
+                # W/S keys control left wheel forward/backward velocity.
+                # O/K keys control right wheel forward/backward velocity.
+                # Space bar stops the robot.
+                if event.key == pygame.K_o:
+                    robot.set_velocity(Action.INCREASE_RIGHT)
+                if event.key == pygame.K_k:
+                    robot.set_velocity(Action.DECREASE_RIGHT)
+                if event.key == pygame.K_w:
+                    robot.set_velocity(Action.INCREASE_LEFT)
+                if event.key == pygame.K_s:
+                    robot.set_velocity(Action.DECREASE_LEFT)
+                if event.key == pygame.K_SPACE:
+                    robot.set_velocity(Action.BREAK)
 
         # Update the robot's state with a fixed time step.
-        dt = 0.1
-        robot.update(dt, Config.maze_grid)
+        dt = 1/fps
+        robot.update_motion(dt, Config.maze_grid)
 
         # --- Rendering ---
         picasso.draw_map(robot)
-        picasso.update_display()
+        picasso.update_display(fps)
     picasso.quit()
 
 if __name__ == "__main__":
