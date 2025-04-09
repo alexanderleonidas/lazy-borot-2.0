@@ -1,8 +1,8 @@
 from enum import Enum
 import numpy as np
 import math
-import sys
 from config import Config
+from picasso import Picasso
 
 
 class Action(Enum):
@@ -20,6 +20,11 @@ class Robot:
         self.y = y
         self.theta = theta  # in radians
         self.radius = 10.  # for drawing the robot
+
+        # Extra Variables
+        self.last_collision_cell = None  # stores (i, j) of last obstacle collision
+        self.path_history = []
+        self.max_history_length = 200
 
         # Wheel configuration
         self.max_speed = 50
@@ -65,6 +70,7 @@ class Robot:
         # First, try to update fully if the new position is free.
         if not self.circle_collides(new_x, new_y, maze):
             self.x, self.y = new_x, new_y
+            self.last_collision_cell = None
         else:
             # Otherwise, perform axis-separated updates to allow sliding.
             if not self.circle_collides(new_x, self.y, maze):
@@ -74,7 +80,12 @@ class Robot:
 
         # Finally, update the orientation.
         self.theta = new_theta
-        print(f'Robot Pose: x: {self.x:.2f} | y: {self.y:.2f} | θ:  {self.theta:.2f}')
+        print(f'\rRobot Pose: x: {self.x:.2f} | y: {self.y:.2f} | θ: {self.theta:.2f}', end='', flush=True)
+
+        # Add current position to path history
+        self.path_history.append((self.x, self.y))
+        if len(self.path_history) > self.max_history_length:
+            self.path_history.pop(0)
 
     def circle_collides(self, x, y, maze):
         """
@@ -92,7 +103,6 @@ class Robot:
         # Then check collision with maze obstacles
         cell_size = Config.CELL_SIZE
         radius = self.radius
-
         # Determine the grid cells within the circle's bounding box.
         min_cell_x = int((x - radius) // cell_size)
         max_cell_x = int((x + radius) // cell_size)
@@ -117,6 +127,7 @@ class Robot:
                         # Calculate the distance from the circle's center to this closest point.
                         distance = math.sqrt((x - closest_x) ** 2 + (y - closest_y) ** 2)
                         if distance < radius:
+                            self.last_collision_cell = (cell_y, cell_x)
                             return True
         return False
 
@@ -127,7 +138,7 @@ class Robot:
             Returns a list of distances (one per sensor).
         """
         readings = []
-        noise_std = 0.5
+        noise_std = 0.1
         for angle in self.sensor_angles:
             sensor_angle = self.theta + angle
             distance = 0

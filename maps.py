@@ -1,6 +1,14 @@
 import numpy as np
 import random
 
+def generate_bordered_map(width: int, height: int) -> np.ndarray:
+    grid = np.zeros((height, width), dtype=int)
+    grid[0, :] = 1
+    grid[-1, :] = 1
+    grid[:, 0] = 1
+    grid[:, -1] = 1
+    return grid
+
 def generate_building_map(width: int, height: int) -> np.ndarray:
     grid = np.ones((height, width), dtype=int)
 

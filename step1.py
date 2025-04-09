@@ -2,6 +2,7 @@ import pygame
 from picasso import Picasso
 from config import Config
 from robot import Robot, Action
+
 def main():
     fps = 30
     pygame.init()
