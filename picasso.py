@@ -22,6 +22,7 @@ class Picasso:
         self._draw_robot(robot)
         self._draw_velocities(robot.left_velocity, robot.right_velocity, robot.theta)
         self._draw_path_history(robot.path_history)
+        self._draw_landmarks()
         # Highlight collision if one occurred
         if robot.last_collision_cell:
             self._draw_collision_marker(robot.last_collision_cell, robot.x, robot.y)
@@ -38,10 +39,12 @@ class Picasso:
                     pygame.draw.rect(self.screen, Config.GRAY, rect)
 
     def _draw_robot(self, robot):
-        pygame.draw.circle(self.screen, Config.BLUE, (int(robot.x), int(robot.y)), robot.radius)
-        end_x = int(robot.x + robot.radius * math.cos(robot.theta))
-        end_y = int(robot.y + robot.radius * math.sin(robot.theta))
-        pygame.draw.line(self.screen, Config.RED, (int(robot.x), int(robot.y)), (end_x, end_y), 2)
+        x = int(robot.x)
+        y = int(robot.y)
+        pygame.draw.circle(self.screen, Config.BLUE, (x, y), robot.radius)
+        end_x = x + int(robot.radius * math.cos(robot.theta))
+        end_y = y + int(robot.radius * math.sin(robot.theta))
+        pygame.draw.line(self.screen, Config.RED, (x, y), (end_x, end_y), 2)
 
     def _draw_sensor_readings(self, robot):
         sensor_readings = robot.get_sensor_readings(Config.maze_grid)
@@ -76,14 +79,15 @@ class Picasso:
         vel_text = self.small_font.render(f"l_vel: x={l_v:.1f} | r_vel={r_v:.1f} | θ={theta:.1f}",True, Config.RED)
         self.screen.blit(vel_text, (Config.WINDOW_WIDTH - 220, 20))
 
+    def _draw_landmarks(self):
+        tile_size = Config.CELL_SIZE
+        for landmark in Config.landmarks:
+            cx, cy = landmark
+            pygame.draw.circle(self.screen, Config.ORANGE, (cx, cy), tile_size // 10)
+
     def _draw_collision_marker(self, cell_pos: tuple[int, int], robot_x: float, robot_y: float):
         """
         Draw a neon-colored line on the side of the obstacle cell that the robot is colliding with.
-
-        Args:
-            cell_pos (tuple[int, int]): (i, j) index of the collided cell.
-            robot_x (float): robot's x position.
-            robot_y (float): robot's y position.
         """
         i, j = cell_pos
         cell_size = Config.CELL_SIZE
