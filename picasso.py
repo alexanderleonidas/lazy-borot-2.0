@@ -16,9 +16,10 @@ class Picasso:
         self.clock = pygame.time.Clock()
 
 
-    def draw_map(self, robot):
+    def draw_map(self, robot, show_sensors=False):
         self._draw_maze()
-        self._draw_sensor_readings(robot)
+        if show_sensors: self._draw_sensor_readings(robot)
+        self._draw_visible_landmarks(robot)
         self._draw_robot(robot)
         self._draw_velocities(robot.left_velocity, robot.right_velocity, robot.theta)
         self._draw_path_history(robot.path_history)
@@ -85,6 +86,7 @@ class Picasso:
             cx, cy = landmark
             pygame.draw.circle(self.screen, Config.ORANGE, (cx, cy), tile_size // 10)
 
+
     def _draw_collision_marker(self, cell_pos: tuple[int, int], robot_x: float, robot_y: float):
         """
         Draw a neon-colored line on the side of the obstacle cell that the robot is colliding with.
@@ -137,3 +139,64 @@ class Picasso:
     def quit():
         pygame.quit()
         sys.exit()
+
+    def _draw_visible_landmarks(self, robot):
+        """
+        Draw lines from the robot to landmarks that are within sensor range and visible
+        (not occluded by obstacles).
+        """
+        # Extract robot position and sensor range
+        robot_x, robot_y = robot.x, robot.y
+        sensor_range = robot.sensor_range
+
+        for landmark in Config.landmarks:
+            lm_x, lm_y = landmark
+
+            # Calculate Euclidean distance to the landmark
+            distance = math.sqrt((lm_x - robot_x) ** 2 + (lm_y - robot_y) ** 2)
+
+            # Check if landmark is within sensor range
+            if distance <= sensor_range:
+                # Check if there's a clear line of sight (no obstacles)
+                is_visible = True
+                cell_size = Config.CELL_SIZE
+
+                # Use Bresenham's line algorithm to check visibility
+                dx = abs(lm_x - robot_x)
+                dy = abs(lm_y - robot_y)
+                sx = 1 if robot_x < lm_x else -1
+                sy = 1 if robot_y < lm_y else -1
+                err = dx - dy
+
+                x, y = robot_x, robot_y
+
+                while not (abs(x - lm_x) < 1 and abs(y - lm_y) < 1):
+                    # Convert to grid coordinates
+                    cell_x = int(x // cell_size)
+                    cell_y = int(y // cell_size)
+
+                    # Check if current cell is valid and not an obstacle
+                    if (0 <= cell_x < Config.GRID_WIDTH and
+                            0 <= cell_y < Config.GRID_HEIGHT and
+                            Config.maze_grid[cell_y, cell_x] == 1):
+                        is_visible = False
+                        break
+
+                    # Calculate next point
+                    e2 = 2 * err
+                    if e2 > -dy:
+                        err -= dy
+                        x += sx
+                    if e2 < dx:
+                        err += dx
+                        y += sy
+
+                # If landmark is visible, draw a line to it
+                if is_visible:
+                    pygame.draw.line(self.screen, Config.YELLOW,
+                                     (int(robot_x), int(robot_y)),
+                                     (int(lm_x), int(lm_y)), 1)
+                    # Draw a small circle around visible landmarks
+                    pygame.draw.circle(self.screen, Config.RED,
+                                       (int(lm_x), int(lm_y)),
+                                       Config.CELL_SIZE // 8, 2)
