@@ -1,14 +1,15 @@
 from dataclasses import dataclass
-from maps import *
+from maps import Maps
 
 @dataclass
 class Config:
     """
     Configuration class for the application.
     """
-    maze_grid = generate_bordered_map(23,23)
+    CELL_SIZE = 40  # pixels per cell
+    maze_grid = Maps.generate_bordered_map(23,23)
+    landmarks = Maps.find_random_landmarks(maze_grid, CELL_SIZE)
     GRID_HEIGHT, GRID_WIDTH = maze_grid.shape
-    CELL_SIZE = 20  # pixels per cell
 
     # Pygame window size
     WINDOW_WIDTH = GRID_WIDTH * CELL_SIZE
@@ -24,3 +25,4 @@ class Config:
     YELLOW = (255, 255, 0)
     NEON_PINK = (255, 20, 147)
     AQUA = (0, 255, 255)
+    ORANGE = (255, 165, 0)
