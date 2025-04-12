@@ -193,10 +193,61 @@ class Picasso:
 
                 # If landmark is visible, draw a line to it
                 if is_visible:
-                    pygame.draw.line(self.screen, Config.YELLOW,
+                    pygame.draw.line(self.screen, Config.GREEN,
                                      (int(robot_x), int(robot_y)),
                                      (int(lm_x), int(lm_y)), 1)
                     # Draw a small circle around visible landmarks
                     pygame.draw.circle(self.screen, Config.RED,
                                        (int(lm_x), int(lm_y)),
                                        Config.CELL_SIZE // 8, 2)
+    
+
+    def get_visible_landmark_measurements(self, robot):
+        """
+        Returns a list of (z, landmark_pos) for visible landmarks.
+        z is the actual measurement: [distance, bearing]
+        """
+        visible_measurements = []
+        robot_x, robot_y = robot.x, robot.y
+        sensor_range = robot.sensor_range
+        theta = robot.theta
+        cell_size = Config.CELL_SIZE
+
+        for lm_x, lm_y in Config.landmarks:
+            dx = lm_x - robot_x
+            dy = lm_y - robot_y
+            distance = math.sqrt(dx**2 + dy**2)
+
+            if distance <= sensor_range:
+                # Bresenham's line-of-sight check (copied from _draw_visible_landmarks)
+                is_visible = True
+                x, y = robot_x, robot_y
+                err = abs(dx) - abs(dy)
+                sx = 1 if robot_x < lm_x else -1
+                sy = 1 if robot_y < lm_y else -1
+                while not (abs(x - lm_x) < 1 and abs(y - lm_y) < 1):
+                    cell_x = int(x // cell_size)
+                    cell_y = int(y // cell_size)
+                    if (0 <= cell_x < Config.GRID_WIDTH and
+                            0 <= cell_y < Config.GRID_HEIGHT and
+                            Config.maze_grid[cell_y, cell_x] == 1):
+                        is_visible = False
+                        break
+                    e2 = 2 * err
+                    if e2 > -abs(dy):
+                        err -= abs(dy)
+                        x += sx
+                    if e2 < abs(dx):
+                        err += abs(dx)
+                        y += sy
+
+                if is_visible:
+                    bearing = math.atan2(dy, dx) - theta
+                    z = np.array([distance, ((bearing + math.pi) % (2 * math.pi)) - math.pi])  # normalized
+                    visible_measurements.append((z, np.array([lm_x, lm_y])))
+
+        return visible_measurements
+    
+
+
+    
