@@ -33,15 +33,15 @@ class KalmanFilter:
         print(f"[PREDICT] State before: {self.state}")
         self.state = np.array([x_new, y_new, theta_new])
         print(f"[PREDICT] State after prediction: {[x_new, y_new, theta_new]}")
-        print(f"[PREDICT] Covariance P:\n{self.P}\n")
+        
 
-        # Update the uncertainty (assuming linear model: F = I)
+        # Update the uncertainty (assuming linear model F = I)
         self.P = self.P + self.Q
 
     def correction(self, visible_landmarks):
         triangulated_pose = self.triangulate_pose_from_landmarks(visible_landmarks)
         if triangulated_pose is None:
-            print("[SKIP] No visible landmarks — correction skipped.\n")
+            print("No visible landmarks — correction skipped.\n")
             return
 
         # Innovation (measurement residual)
@@ -58,18 +58,13 @@ class KalmanFilter:
         K = self.P @ H.T @ np.linalg.inv(S)
 
         # Update state
-        print(f"[CORRECT] Triangulated pose (z): {z}")
-        print(f"[CORRECT] Predicted state (h): {h}")
-        print(f"[CORRECT] Innovation (y): {y_residual}")
-        print(f"[CORRECT] Kalman Gain (K):\n{K}")
         self.state = self.state + K @ y_residual
         self.state[2] = self.normalize_angle(self.state[2])
-        print(f"[CORRECT] State after correction: {self.state}")
         
         # Update covariance
         I = np.eye(3)
         self.P = (I - K @ H) @ self.P
-        print(f"[CORRECT] Covariance P after update:\n{self.P}\n")
+
 
     def triangulate_pose_from_landmarks(self, visible_landmarks):
         """
@@ -121,9 +116,11 @@ class KalmanFilter:
             noisy_theta
         ])
 
-        print(f"[TRIANGULATE] Position estimate (mean): {mean_pos}")
-        print(f"[TRIANGULATE] Orientation estimate (mean theta): {mean_theta}")
-        print(f"[TRIANGULATE] Noisy triangulated pose: {noisy_pose}\n")
+        # Store the belief history
+        self.belief_history.append(noisy_pose)
+        if len(self.belief_history) > self.max_history_length:
+            self.belief_history.pop(0)
+        # Return the noisy pose
 
         return noisy_pose
 

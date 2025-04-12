@@ -16,7 +16,7 @@ class Picasso:
         self.clock = pygame.time.Clock()
 
 
-    def draw_map(self, robot, show_sensors=False):
+    def draw_map(self, robot, show_sensors=False, belief_history = None):
         self._draw_maze()
         if show_sensors: self._draw_sensor_readings(robot)
         self._draw_visible_landmarks(robot)
@@ -24,6 +24,8 @@ class Picasso:
         self._draw_velocities(robot.left_velocity, robot.right_velocity, robot.theta)
         self._draw_path_history(robot.path_history)
         self._draw_landmarks()
+        if belief_history:
+            self._draw_belief_history(belief_history)
         # Highlight collision if one occurred
         if robot.last_collision_cell:
             self._draw_collision_marker(robot.last_collision_cell, robot.x, robot.y)
@@ -247,6 +249,14 @@ class Picasso:
                     visible_measurements.append((z, np.array([lm_x, lm_y])))
 
         return visible_measurements
+    
+    def _draw_belief_history(self, belief_history, color=(128, 0, 128)):
+        if len(belief_history) < 2:
+            return
+        # Convert each belief to a 2D point ignoring the orientation.
+        points = [(int(pose[0]), int(pose[1])) for pose in belief_history]
+        for i in range(len(points) - 1):
+            pygame.draw.line(self.screen, color, points[i], points[i + 1], 2)
     
 
 

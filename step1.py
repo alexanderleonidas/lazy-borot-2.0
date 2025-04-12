@@ -46,7 +46,7 @@ def main():
         kf.correction(visible_landmarks)
 
         # --- Rendering ---
-        picasso.draw_map(robot)
+        picasso.draw_map(robot, belief_history=kf.belief_history)
         picasso.update_display(fps)
     picasso.quit()
 
