@@ -2,7 +2,7 @@ from enum import Enum
 import numpy as np
 import math
 from config import Config
-from picasso import Picasso
+from kalman_filter import KalmanFilter
 
 
 class Action(Enum):
@@ -36,6 +36,9 @@ class Robot:
         # Sensor configuration: simulating 3 sensors (front, left, right)
         self.sensor_range = 150.0  # max range in pixels
         self.sensor_angles = [(2. * math.pi / 12) * i for i in range(12)]  # relative sensor directions
+        self.visible_measurements = []  # list of visible landmarks
+
+        self.filter = KalmanFilter(self)
 
     def update_motion(self, dt, maze):
         """

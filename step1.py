@@ -12,7 +12,6 @@ def main():
     pygame.display.set_caption("Robot Simulator (step 1)")
     # Create a robot instance at the starting position.
     robot = Robot(Config.CELL_SIZE * 1.5, Config.CELL_SIZE * 1.5, 0)
-    kf = KalmanFilter(robot)
 
     # Main simulation loop
     running = True
@@ -40,13 +39,11 @@ def main():
         # Update the robot's state with a fixed time step.
         dt = 1/fps
         robot.update_motion(dt, Config.maze_grid)
-
-        kf.prediction()
-        visible_landmarks = picasso.get_visible_landmark_measurements(robot)
-        kf.correction(visible_landmarks)
+        
+        robot.filter.pose_tracking(robot.visible_measurements)
 
         # --- Rendering ---
-        picasso.draw_map(robot, belief_history=kf.belief_history)
+        picasso.draw_map(robot, belief_history=robot.filter.belief_history)
         picasso.update_display(fps)
     picasso.quit()
 
