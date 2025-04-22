@@ -1,6 +1,5 @@
 import numpy as np
-import math
-from math import cos, sin
+from math import cos, sin, atan2, sqrt, acos, degrees
 from itertools import combinations
 
 class KalmanFilter:
@@ -11,25 +10,24 @@ class KalmanFilter:
         self.A = np.eye(3)  # State transition matrix
         self.B = np.zeros((3, 2))  # Control input matrix
         
-        self.R = np.eye(3) * 0.001
+        self.R = np.eye(3) * 10
         self.C = np.eye(3)
-        self.Q = np.eye(3) * 0.001
+        self.Q = np.eye(3) * 10
         self.I = np.eye(3)
 
         self.belief_history = []
         self.max_history_length = 200
 
-    def pose_tracking(self, visible_landmarks):
+    def pose_tracking(self, dt):
         """
         Performs the Kalman filter prediction and correction steps.
         """
 
         # Prediction step
-        dt = 1/30
         u = np.array([self.robot.get_linear_velocity(), 
                       self.robot.get_angular_velocity()])
         
-        theta = self.pose[2]
+        theta = self.robot.theta
 
         self.B = np.array([
             [dt * cos(theta), 0],
@@ -37,7 +35,7 @@ class KalmanFilter:
             [0, dt]
         ])
 
-        predicted_pose = np.dot(self.A, self.pose) + np.dot(self.B, u)
+        self.pose = np.dot(self.A, self.pose) + np.dot(self.B, u)
         self.covariance = np.matmul((np.matmul(self.A, self.covariance)), self.A.T) + self.R
 
         # Correction step
@@ -46,71 +44,176 @@ class KalmanFilter:
                       np.linalg.inv(np.matmul(np.matmul(self.C, self.covariance), self.C.T) + self.Q))
 
         # Correct the predicted pose through the visible landmarks
-        triangulated_pose = self.triangulate_pose_from_landmarks(visible_landmarks)
+        triangulated_pose = self.triangulate_pose_from_landmarks()
         if triangulated_pose is None:
-            print("\rNo visible landmarks — correction skipped.\n", end='', flush=True)
+            # print("\rNo visible landmarks — correction skipped.", end='', flush=True)
             return
-        print("\rVisible landmarks detected — correction applied.\n", end='', flush=True)
+        # print("\rVisible landmarks detected — correction applied.", end='', flush=True)
         
         z = triangulated_pose
 
-        self.pose = predicted_pose + np.matmul(K, (z - np.dot(self.C, predicted_pose)))
+        self.pose = self.pose + np.matmul(K, (z - np.dot(self.C, self.pose)))
         self.covariance = np.matmul((self.I - np.matmul(K, self.C)), self.covariance)
 
         self.belief_history.append(self.pose)
         if len(self.belief_history) > self.max_history_length:
             self.belief_history.pop(0)
 
-        #return self.pose, self.covariance, self.belief_history
-
-    def triangulate_pose_from_landmarks(self, visible_landmarks):
+    def triangulate_pose_from_landmarks(self):
         """
-        Performs triangulation: in the case of more than two landmarks it takes the average of the estimates,
-        including orientation (theta) from bearings.
+        Performs triangulation using the FIRST valid pair of landmarks found.
+        Returns:
+            numpy.ndarray: Estimated pose [x, y, theta] with noise, or None if insufficient landmarks or no valid pair found.
+        WARNING: Using only one pair can be sensitive to measurement noise.
         """
-        if len(visible_landmarks) < 2:
+        if len(self.robot.visible_measurements) < 2:
+            # print("\rTriangulation requires at least 2 landmarks.", end='', flush=True)
             return None  # Need at least two landmarks to triangulate
 
-        pos_estimates = []
-        theta_estimates = []
+        calculated_pose = None  # Variable to store the result from the first valid pair
 
-        for (z1, lm1), (z2, lm2) in combinations(visible_landmarks, 2):
-            d1, b1 = z1
-            d2, b2 = z2
-            x1, y1 = lm1
-            x2, y2 = lm2
+        # Iterate through all unique pairs of visible landmarks
+        for (z1, lm1), (z2, lm2) in combinations(self.robot.visible_measurements, 2):
+            try:
+                d1, b1 = z1
+                d2, b2 = z2
+                x1, y1 = lm1
+                x2, y2 = lm2
 
-            # Estimate robot position relative to each landmark
-            rx1 = x1 - d1 * np.cos(b1)
-            ry1 = y1 - d1 * np.sin(b1)
-            rx2 = x2 - d2 * np.cos(b2)
-            ry2 = y2 - d2 * np.sin(b2)
+                # Basic validation: distances should be positive
+                if d1 <= 0 or d2 <= 0:
+                    continue
 
-            rx = (rx1 + rx2) / 2
-            ry = (ry1 + ry2) / 2
-            pos_estimates.append([rx, ry])
+                # --- Geometric Triangulation Logic ---
+                landmark_dist_sq = (x1 - x2) ** 2 + (y1 - y2) ** 2
+                landmark_dist = sqrt(landmark_dist_sq)
 
-            # Estimate orientation from each bearing
-            theta1 = np.arctan2(y1 - ry, x1 - rx) - b1
-            theta2 = np.arctan2(y2 - ry, x2 - rx) - b2
+                if landmark_dist < 1e-6:  # Avoid division by zero / numerical instability
+                    continue
 
+                # Use law of cosines
+                cos_alpha1 = (d1 ** 2 + landmark_dist_sq - d2 ** 2) / (2 * d1 * landmark_dist)
+                cos_alpha1 = np.clip(cos_alpha1, -1.0, 1.0)  # Clamp for numerical stability
+                alpha1 = acos(cos_alpha1)
 
-            theta_estimates.append(theta1)
-            theta_estimates.append(theta2)
+                angle_lm1_lm2 = atan2(y2 - y1, x2 - x1)
 
-        mean_pos = np.mean(pos_estimates, axis=0)
-        mean_theta = (np.arctan2(np.sin(theta_estimates).mean(), np.cos(theta_estimates).mean()))
+                # Calculate two possible robot positions
+                angle1 = angle_lm1_lm2 - alpha1
+                rx_candidate1 = x1 + d1 * cos(angle1)
+                ry_candidate1 = y1 + d1 * sin(angle1)
 
-        pos_noise = np.random.normal(0, [0.5, 0.5])
-        theta_noise = np.random.normal(0, 0.05)
-        noisy_theta = mean_theta + theta_noise
+                angle2 = angle_lm1_lm2 + alpha1
+                rx_candidate2 = x1 + d1 * cos(angle2)
+                ry_candidate2 = y1 + d1 * sin(angle2)
+
+                # --- Disambiguation using bearings ---
+                bearing1_cand1 = atan2(y1 - ry_candidate1, x1 - rx_candidate1)
+                bearing2_cand1 = atan2(y2 - ry_candidate1, x2 - rx_candidate1)
+                bearing1_cand2 = atan2(y1 - ry_candidate2, x1 - rx_candidate2)
+                bearing2_cand2 = atan2(y2 - ry_candidate2, x2 - rx_candidate2)
+
+                # Wrap angle differences correctly
+                err1_1 = (bearing1_cand1 - b1 + np.pi) % (2 * np.pi) - np.pi
+                err2_1 = (bearing2_cand1 - b2 + np.pi) % (2 * np.pi) - np.pi
+                consistency_err1 = abs((err1_1 - err2_1 + np.pi) % (2 * np.pi) - np.pi)
+
+                err1_2 = (bearing1_cand2 - b1 + np.pi) % (2 * np.pi) - np.pi
+                err2_2 = (bearing2_cand2 - b2 + np.pi) % (2 * np.pi) - np.pi
+                consistency_err2 = abs((err1_2 - err2_2 + np.pi) % (2 * np.pi) - np.pi)
+
+                # Choose the candidate position and estimate theta
+                if consistency_err1 < consistency_err2:
+                    rx, ry = rx_candidate1, ry_candidate1
+                    # Average theta estimates from this pair
+                    theta = atan2(np.sin(err1_1) + np.sin(err2_1), np.cos(err1_1) + np.cos(err2_1))
+
+                else:
+                    rx, ry = rx_candidate2, ry_candidate2
+                    # Average theta estimates from this pair
+                    theta = atan2(np.sin(err1_2) + np.sin(err2_2), np.cos(err1_2) + np.cos(err2_2))
+
+                # --- Store result and break loop ---
+                # We found a valid pair and calculated the pose
+                calculated_pose = np.array([rx, ry, theta])
+                break  # Exit the loop after processing the first valid pair
+
+            except ValueError as e:
+                # print(f"\rMath error during triangulation for a pair: {e}", end='', flush=True)
+                continue  # Try the next pair
+            except Exception as e:
+                # print(f"\rUnexpected error during triangulation for a pair: {e}", end='', flush=True)
+                continue  # Try the next pair
+
+        # Check if a pose was calculated
+        if calculated_pose is None:
+            # print("\rNo valid pose could be calculated from any landmark pair.", end='', flush=True)
+            return None
+
+        # Add noise to the single calculated pose
 
         noisy_pose = np.array([
-            mean_pos[0] + pos_noise[0],
-            mean_pos[1] + pos_noise[1],
-            noisy_theta
+            calculated_pose[0],
+            calculated_pose[1],
+            calculated_pose[2]
         ])
 
         return noisy_pose
+
+    def get_ellipse_parameters(self, confidence_sigma=2.0):
+        """
+        Calculates the parameters for the uncertainty ellipse based on the
+        positional (x, y) covariance.
+
+        Args:
+            confidence_sigma (float): The number of standard deviations
+                                      to define the ellipse boundary (e.g., 2.0 for ~95%).
+
+        Returns:
+            tuple: (semi_major_axis, semi_minor_axis, angle_degrees) or None if invalid.
+                   Angle is degrees counter-clockwise from the positive x-axis.
+        """
+        # Extract the 2x2 covariance matrix for x and y
+        cov_xy = self.covariance[0:2, 0:2]
+
+        try:
+            # Check if covariance is finite and not all zero
+            if not np.all(np.isfinite(cov_xy)) or np.allclose(cov_xy, 0):
+                return None
+
+            # Calculate eigenvalues and eigenvectors
+            eigenvalues, eigenvectors = np.linalg.eig(cov_xy)
+
+            # Eigenvalues represent variance along principal axes.
+            # Ensure they are non-negative (handle potential float inaccuracies)
+            eigenvalues = np.maximum(eigenvalues, 0)
+
+            # Get the index of the largest eigenvalue
+            major_idx = np.argmax(eigenvalues)
+            minor_idx = 1 - major_idx  # The other index
+
+            # Semi-axis lengths are proportional to sqrt(eigenvalue)
+            # Use confidence_sigma to scale (e.g., 2-sigma ellipse)
+            semi_major = confidence_sigma * sqrt(eigenvalues[major_idx])
+            semi_minor = confidence_sigma * sqrt(eigenvalues[minor_idx])
+
+            # Angle of the major axis is the angle of the corresponding eigenvector
+            major_eigenvector = eigenvectors[:, major_idx]
+            angle_rad = atan2(major_eigenvector[1], major_eigenvector[0])
+            angle_deg = degrees(angle_rad)
+
+            return semi_major, semi_minor, angle_deg
+
+        except np.linalg.LinAlgError:
+            # Matrix might be singular or other linear algebra issues
+            # print("\rWarning: Could not compute eigenvalues for covariance ellipse.", end='', flush=True)
+            return None
+        except Exception as e:
+            # Catch other potential errors
+            # print(f"\rError calculating ellipse parameters: {e}", end='', flush=True)
+            return None
+
+
+
     
 

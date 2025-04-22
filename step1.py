@@ -2,7 +2,6 @@ import pygame
 from picasso import Picasso
 from config import Config
 from robot import Robot, Action
-from newFilter import KalmanFilter
 
 def main():
     fps = 30
@@ -40,8 +39,12 @@ def main():
         dt = 1/fps
         robot.update_motion(dt, Config.maze_grid)
         
-        robot.filter.pose_tracking(robot.visible_measurements)
-
+        robot.filter.pose_tracking(dt)
+        # ep = robot.filter.triangulate_pose_from_landmarks()
+        # if ep is not None:
+        #     str1 = f'\rRobot Pose: x: {robot.x:.2f} | y: {robot.y:.2f} | θ: {robot.theta:.2f} | '
+        #     str2 = f'Triangulated Pose: x: {ep[0]:.2f} | y: {ep[1]:.2f} | θ: {ep[2]:.2f}'
+        #     print(str1 + str2, end='', flush=True)
         # --- Rendering ---
         picasso.draw_map(robot, belief_history=robot.filter.belief_history)
         picasso.update_display(fps)

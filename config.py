@@ -27,3 +27,4 @@ class Config:
     AQUA = (0, 255, 255)
     ORANGE = (255, 165, 0)
     DARK_BLUE = (255, 87, 51)
+    PURPLE = (128, 0, 128)
