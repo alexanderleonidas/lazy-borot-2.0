@@ -7,8 +7,8 @@ class Config:
     Configuration class for the application.
     """
     CELL_SIZE = 40  # pixels per cell
-    maze_grid = Maps.generate_maze(23,23)
-    landmarks = Maps.find_corner_landmarks(maze_grid, CELL_SIZE)
+    maze_grid = Maps.generate_bordered_map(23,23)
+    landmarks = Maps.find_random_landmarks(maze_grid, CELL_SIZE)
     GRID_HEIGHT, GRID_WIDTH = maze_grid.shape
 
     # Pygame window size
@@ -26,3 +26,4 @@ class Config:
     NEON_PINK = (255, 20, 147)
     AQUA = (0, 255, 255)
     ORANGE = (255, 165, 0)
+    DARK_BLUE = (255, 87, 51)

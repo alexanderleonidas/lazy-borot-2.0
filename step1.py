@@ -2,6 +2,7 @@ import pygame
 from picasso import Picasso
 from config import Config
 from robot import Robot, Action
+from newFilter import KalmanFilter
 
 def main():
     fps = 30
@@ -23,7 +24,7 @@ def main():
                 # --- Keyboard Controls ---
                 # W/S keys control left wheel forward/backward velocity.
                 # O/K keys control right wheel forward/backward velocity.
-                # Space bar stops the robot.
+                # Space bar stops the robot.w
                 if event.key == pygame.K_o:
                     robot.set_velocity(Action.INCREASE_RIGHT)
                 if event.key == pygame.K_k:
@@ -38,9 +39,11 @@ def main():
         # Update the robot's state with a fixed time step.
         dt = 1/fps
         robot.update_motion(dt, Config.maze_grid)
+        
+        robot.filter.pose_tracking(robot.visible_measurements)
 
         # --- Rendering ---
-        picasso.draw_map(robot)
+        picasso.draw_map(robot, belief_history=robot.filter.belief_history)
         picasso.update_display(fps)
     picasso.quit()
 

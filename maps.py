@@ -76,7 +76,7 @@ class Maps:
         return maze
 
     @staticmethod
-    def find_random_landmarks(grid, cell_size, num_landmarks=30, min_distance=None):
+    def find_random_landmarks(grid, cell_size, num_landmarks=50, min_distance=None):
         """
         Randomly place landmarks within the empty spaces (cells with value 0) of the grid
         and return their Cartesian coordinates.

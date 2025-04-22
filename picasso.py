@@ -16,14 +16,17 @@ class Picasso:
         self.clock = pygame.time.Clock()
 
 
-    def draw_map(self, robot, show_sensors=False):
+    def draw_map(self, robot, show_sensors=False, belief_history = None):
         self._draw_maze()
         if show_sensors: self._draw_sensor_readings(robot)
         self._draw_visible_landmarks(robot)
+        #self._draw_uncertainty_ellipse(robot)
         self._draw_robot(robot)
         self._draw_velocities(robot.left_velocity, robot.right_velocity, robot.theta)
         self._draw_path_history(robot.path_history)
         self._draw_landmarks()
+        if belief_history:
+            self._draw_belief_history(belief_history)
         # Highlight collision if one occurred
         if robot.last_collision_cell:
             self._draw_collision_marker(robot.last_collision_cell, robot.x, robot.y)
@@ -143,60 +146,109 @@ class Picasso:
     def _draw_visible_landmarks(self, robot):
         """
         Draw lines from the robot to landmarks that are within sensor range and visible
-        (not occluded by obstacles).
+        (not occluded by obstacles). Also returns the list of visible measurements.
+        Each measurement is a tuple (z, landmark_pos), where:
+            - z is [distance, bearing]
+            - landmark_pos is [lm_x, lm_y]
         """
-        # Extract robot position and sensor range
+        visible_measurements = []
         robot_x, robot_y = robot.x, robot.y
+        theta = robot.theta
         sensor_range = robot.sensor_range
+        cell_size = Config.CELL_SIZE
 
-        for landmark in Config.landmarks:
-            lm_x, lm_y = landmark
+        for lm_x, lm_y in Config.landmarks:
+            dx = lm_x - robot_x
+            dy = lm_y - robot_y
+            distance = math.hypot(dx, dy)
 
-            # Calculate Euclidean distance to the landmark
-            distance = math.sqrt((lm_x - robot_x) ** 2 + (lm_y - robot_y) ** 2)
-
-            # Check if landmark is within sensor range
             if distance <= sensor_range:
-                # Check if there's a clear line of sight (no obstacles)
+                # Check visibility using Bresenham-like approach
                 is_visible = True
-                cell_size = Config.CELL_SIZE
-
-                # Use Bresenham's line algorithm to check visibility
-                dx = abs(lm_x - robot_x)
-                dy = abs(lm_y - robot_y)
-                sx = 1 if robot_x < lm_x else -1
-                sy = 1 if robot_y < lm_y else -1
-                err = dx - dy
-
                 x, y = robot_x, robot_y
+                step_dx = abs(dx)
+                step_dy = abs(dy)
+                err = step_dx - step_dy
+                sx = 1 if dx > 0 else -1
+                sy = 1 if dy > 0 else -1
 
                 while not (abs(x - lm_x) < 1 and abs(y - lm_y) < 1):
-                    # Convert to grid coordinates
                     cell_x = int(x // cell_size)
                     cell_y = int(y // cell_size)
 
-                    # Check if current cell is valid and not an obstacle
                     if (0 <= cell_x < Config.GRID_WIDTH and
                             0 <= cell_y < Config.GRID_HEIGHT and
                             Config.maze_grid[cell_y, cell_x] == 1):
                         is_visible = False
                         break
 
-                    # Calculate next point
                     e2 = 2 * err
-                    if e2 > -dy:
-                        err -= dy
+                    if e2 > -step_dy:
+                        err -= step_dy
                         x += sx
-                    if e2 < dx:
-                        err += dx
+                    if e2 < step_dx:
+                        err += step_dx
                         y += sy
 
-                # If landmark is visible, draw a line to it
                 if is_visible:
-                    pygame.draw.line(self.screen, Config.YELLOW,
-                                     (int(robot_x), int(robot_y)),
-                                     (int(lm_x), int(lm_y)), 1)
-                    # Draw a small circle around visible landmarks
+                    # Draw line and circle
+                    pygame.draw.line(self.screen, Config.GREEN,
+                                    (int(robot_x), int(robot_y)),
+                                    (int(lm_x), int(lm_y)), 1)
                     pygame.draw.circle(self.screen, Config.RED,
-                                       (int(lm_x), int(lm_y)),
-                                       Config.CELL_SIZE // 8, 2)
+                                    (int(lm_x), int(lm_y)),
+                                    Config.CELL_SIZE // 8, 2)
+
+                    bearing = math.atan2(dy, dx) - theta
+                    z = np.array([distance, ((bearing + math.pi) % (2 * math.pi)) - math.pi])
+                    visible_measurements.append((z, np.array([lm_x, lm_y])))
+        robot.visible_measurements = visible_measurements
+
+    
+    def _draw_belief_history(self, belief_history, color=(128, 0, 128)):
+        if len(belief_history) < 2:
+            return
+        # Convert each belief to a 2D point ignoring the orientation.
+        points = [(int(pose[0]), int(pose[1])) for pose in belief_history]
+        for i in range(len(points) - 1):
+            pygame.draw.line(self.screen, color, points[i], points[i + 1], 2)
+    
+    
+    def _draw_uncertainty_ellipse(self, robot):
+        # Get ellipse parameters from the filter
+        a, b, angle_deg = robot.filter.ellipse()  # semi-major, semi-minor, angle
+
+        scale_factor = 40  # Adjust as needed
+        width = max(2 * a * scale_factor, 10)
+        height = max(2 * b * scale_factor, 10)
+
+        # Center of ellipse is the robot's current estimated position
+        center_x, center_y = int(robot.filter.state[0]), int(robot.filter.state[1])
+
+        # Create a transparent surface to draw ellipse on
+        surface_size = int(max(width, height) * 1.5)
+        ellipse_surface = pygame.Surface((surface_size, surface_size), pygame.SRCALPHA)
+
+        # Define the ellipse's rect and center it on the surface
+        ellipse_rect = pygame.Rect(0, 0, width, height)
+        ellipse_rect.center = (surface_size / 2, surface_size / 2)
+
+        # Draw the filled ellipse with some transparency
+        pygame.draw.ellipse(ellipse_surface, (255, 165, 0, 80), ellipse_rect)
+        # Optionally draw the ellipse border
+        pygame.draw.ellipse(ellipse_surface, Config.ORANGE, ellipse_rect, 2)
+
+        # Rotate the surface by -angle (since Pygame rotates counter-clockwise)
+        rotated_surface = pygame.transform.rotate(ellipse_surface, -angle_deg)
+        rotated_rect = rotated_surface.get_rect(center=(center_x, center_y))
+
+        # Blit to the main screen
+        self.screen.blit(rotated_surface, rotated_rect)
+
+        # Optional: mark center
+        pygame.draw.circle(self.screen, (0, 0, 255), (center_x, center_y), 2)
+
+    
+
+
+    

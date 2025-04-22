@@ -2,7 +2,7 @@ from enum import Enum
 import numpy as np
 import math
 from config import Config
-from picasso import Picasso
+from kalman_filter import KalmanFilter
 
 
 class Action(Enum):
@@ -34,8 +34,11 @@ class Robot:
         self.left_velocity = 0
 
         # Sensor configuration: simulating 3 sensors (front, left, right)
-        self.sensor_range = 80.0  # max range in pixels
+        self.sensor_range = 150.0  # max range in pixels
         self.sensor_angles = [(2. * math.pi / 12) * i for i in range(12)]  # relative sensor directions
+        self.visible_measurements = []  # list of visible landmarks
+
+        self.filter = KalmanFilter(self)
 
     def update_motion(self, dt, maze):
         """
@@ -65,6 +68,7 @@ class Robot:
             new_x = cos_dt * (self.x - icc_x) - sin_dt * (self.y - icc_y) + icc_x
             new_y = sin_dt * (self.x - icc_x) + cos_dt * (self.y - icc_y) + icc_y
             new_theta = (self.theta + delta_theta) % (2 * math.pi)
+        
 
         # --- Strict collision detection using the robot's circular footprint ---
         # First, try to update fully if the new position is free.
@@ -80,12 +84,13 @@ class Robot:
 
         # Finally, update the orientation.
         self.theta = new_theta
-        print(f'\rRobot Pose: x: {self.x:.2f} | y: {self.y:.2f} | θ: {self.theta:.2f}', end='', flush=True)
+        #print(f'\rRobot Pose: x: {self.x:.2f} | y: {self.y:.2f} | θ: {self.theta:.2f}', end='', flush=True)
 
         # Add current position to path history
         self.path_history.append((self.x, self.y))
         if len(self.path_history) > self.max_history_length:
             self.path_history.pop(0)
+        
 
     def circle_collides(self, x, y, maze):
         """
@@ -174,6 +179,12 @@ class Robot:
 
     def get_linear_velocity(self):
         return (self.right_velocity + self.left_velocity) / 2
+    
+    def get_right_wheel_velocity(self):
+        return self.right_velocity
+    
+    def get_left_wheel_velocity(self):
+        return self.left_velocity
 
     def get_angular_velocity(self):
         return (self.right_velocity - self.left_velocity) / self.wheel_distance
