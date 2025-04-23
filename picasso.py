@@ -89,19 +89,19 @@ class Picasso:
         # Blit the trail surface onto the main screen
         self.screen.blit(trail_surface, (0, 0))
 
-    # def _draw_estimated_pose(self, pose):
-    #     # Estimated Robot Position from Filter
-    #     x = int(pose[0])
-    #     y = int(pose[1])
-    #     theta = pose[2]
-    #     radius = 8  # Make slightly smaller than ground truth maybe
-    #
-    #     # Draw circle for estimated position
-    #     pygame.draw.circle(self.screen, Config.PURPLE, (x, y), radius, 2)  # Draw outline
-    #     # Line indicating estimated orientation
-    #     end_x = x + int(radius * math.cos(theta))
-    #     end_y = y + int(radius * math.sin(theta))
-    #     pygame.draw.line(self.screen, Config.PURPLE, (x, y), (end_x, end_y), 2)
+    def _draw_estimated_pose(self, pose):
+        # Estimated Robot Position from Filter
+        x = int(pose[0])
+        y = int(pose[1])
+        theta = pose[2]
+        radius = 8  # Make slightly smaller than ground truth maybe
+
+        # Draw circle for estimated position
+        pygame.draw.circle(self.screen, Config.PURPLE, (x, y), radius, 2)  # Draw outline
+        # Line indicating estimated orientation
+        end_x = x + int(radius * math.cos(theta))
+        end_y = y + int(radius * math.sin(theta))
+        pygame.draw.line(self.screen, Config.PURPLE, (x, y), (end_x, end_y), 2)
 
     def _draw_velocities(self, l_v, r_v, theta):
         vel_text = self.small_font.render(f"l_vel: x={l_v:.1f} | r_vel={r_v:.1f} | θ={theta:.1f}",True, Config.RED)
@@ -193,15 +193,20 @@ class Picasso:
     def _draw_uncertainty_ellipse(self, robot, confidence_sigma=2.0):
         """
         Draws the positional uncertainty ellipse based on the Kalman filter's covariance.
+        Also stores the ellipse parameters for later reference.
         """
         # Get ellipse parameters from the filter
-        ellipse_params = robot.filter.get_ellipse_parameters(confidence_sigma)
+        ellipse_params = robot.filter.calculate_uncertainty_ellipse(confidence_sigma)
 
         if ellipse_params is None:
             # print("\rCannot draw ellipse: Invalid parameters.", end='', flush=True)
             return  # Cannot draw if parameters are invalid
 
         semi_major, semi_minor, angle_deg = ellipse_params
+
+        # Store ellipse parameters in the robot's filter for potential use elsewhere
+        if not hasattr(robot.filter, 'uncertainty_history'):
+            robot.filter.uncertainty_history = []
 
         # Ensure axes are minimally visible if very small
         width = max(int(2 * semi_major), 2)  # Minimum width of 2 pixels
@@ -247,6 +252,3 @@ class Picasso:
 
         # 5. Blit the rotated surface onto the main screen
         self.screen.blit(rotated_surface, rotated_rect)
-
-        # Optional: Mark the estimated center point (already drawn by _draw_estimated_pose)
-        # pygame.draw.circle(self.screen, Config.PURPLE, (center_x, center_y), 2)

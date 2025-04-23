@@ -2,11 +2,14 @@ import numpy as np
 from math import cos, sin, atan2, sqrt, acos, degrees
 from itertools import combinations
 
+import pygame
+
+
 class KalmanFilter:
     def __init__(self, robot):
         self.robot = robot
         self.pose = self.robot.get_pose()
-        self.covariance = np.eye(3) * 0.001
+        self.covariance = np.eye(3) * 0.01
         self.A = np.eye(3)  # State transition matrix
         self.B = np.zeros((3, 2))  # Control input matrix
         
@@ -16,6 +19,7 @@ class KalmanFilter:
         self.I = np.eye(3)
 
         self.belief_history = []
+        self.uncertainty_history = []
         self.max_history_length = 200
 
     def pose_tracking(self, dt):
@@ -27,7 +31,7 @@ class KalmanFilter:
         u = np.array([self.robot.get_linear_velocity(), 
                       self.robot.get_angular_velocity()])
         
-        theta = self.robot.theta
+        theta = self.pose[2]
 
         self.B = np.array([
             [dt * cos(theta), 0],
@@ -47,6 +51,9 @@ class KalmanFilter:
         triangulated_pose = self.triangulate_pose_from_landmarks()
         if triangulated_pose is None:
             # print("\rNo visible landmarks — correction skipped.", end='', flush=True)
+            self.belief_history.append(self.pose)
+            if len(self.belief_history) > self.max_history_length:
+                self.belief_history.pop(0)
             return
         # print("\rVisible landmarks detected — correction applied.", end='', flush=True)
         
@@ -56,6 +63,7 @@ class KalmanFilter:
         self.covariance = np.matmul((self.I - np.matmul(K, self.C)), self.covariance)
 
         self.belief_history.append(self.pose)
+        self.calculate_uncertainty_ellipse()
         if len(self.belief_history) > self.max_history_length:
             self.belief_history.pop(0)
 
@@ -151,7 +159,6 @@ class KalmanFilter:
             return None
 
         # Add noise to the single calculated pose
-
         noisy_pose = np.array([
             calculated_pose[0],
             calculated_pose[1],
@@ -160,7 +167,7 @@ class KalmanFilter:
 
         return noisy_pose
 
-    def get_ellipse_parameters(self, confidence_sigma=2.0):
+    def calculate_uncertainty_ellipse(self, confidence_sigma=2.0):
         """
         Calculates the parameters for the uncertainty ellipse based on the
         positional (x, y) covariance.
@@ -201,6 +208,17 @@ class KalmanFilter:
             major_eigenvector = eigenvectors[:, major_idx]
             angle_rad = atan2(major_eigenvector[1], major_eigenvector[0])
             angle_deg = degrees(angle_rad)
+
+            self.uncertainty_history.append({
+                'center': (self.pose[0], self.pose[1]),
+                'semi_major': semi_major,
+                'semi_minor': semi_minor,
+                'angle_deg': angle_deg,
+                'timestamp': pygame.time.get_ticks()
+            })
+
+            if len(self.uncertainty_history) > 100:
+                self.uncertainty_history.pop(0)
 
             return semi_major, semi_minor, angle_deg
 
