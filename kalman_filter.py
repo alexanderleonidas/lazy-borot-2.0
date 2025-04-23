@@ -160,9 +160,9 @@ class KalmanFilter:
 
         # Add noise to the single calculated pose
         noisy_pose = np.array([
-            calculated_pose[0],
-            calculated_pose[1],
-            calculated_pose[2]
+            calculated_pose[0] + np.random.normal(0, 0.1),
+            calculated_pose[1] + np.random.normal(0, 0.1),
+            calculated_pose[2] + np.random.normal(0, 0.1)
         ])
 
         return noisy_pose

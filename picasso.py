@@ -182,13 +182,36 @@ class Picasso:
                         Config.CELL_SIZE // 8, 2)
 
     
-    def _draw_belief_history(self, belief_history):
+    def _draw_belief_history(self, belief_history, dash_length=4, gap_length=3):
+        """
+        Draws the estimated trajectory (belief history) as a dashed Cyan line.
+
+        Args:
+            belief_history: List of estimated poses [x, y, theta].
+            dash_length: Number of segments to draw for a dash.
+            gap_length: Number of segments to skip for a gap.
+        """
         if len(belief_history) < 2:
             return
+
         # Convert each belief to a 2D point ignoring the orientation.
         points = [(int(pose[0]), int(pose[1])) for pose in belief_history]
+
+        draw_segment = True
+        segment_count = 0
+
         for i in range(len(points) - 1):
-            pygame.draw.line(self.screen, Config.PURPLE, points[i], points[i + 1], 2)
+            if draw_segment:
+                pygame.draw.line(self.screen, Config.PURPLE, points[i], points[i + 1], 2) # Cyan color
+
+            segment_count += 1
+
+            if draw_segment and segment_count >= dash_length:
+                draw_segment = False
+                segment_count = 0
+            elif not draw_segment and segment_count >= gap_length:
+                draw_segment = True
+                segment_count = 0
 
     def _draw_uncertainty_ellipse(self, robot, confidence_sigma=2.0):
         """
