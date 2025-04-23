@@ -24,7 +24,7 @@ class Robot:
         # Extra Variables
         self.last_collision_cell = None  # stores (i, j) of last obstacle collision
         self.path_history = []
-        self.max_history_length = 200
+        self.max_history_length = 300
 
         # Wheel configuration
         self.max_speed = 50
@@ -34,7 +34,7 @@ class Robot:
         self.left_velocity = 0
 
         # Sensor configuration: simulating 3 sensors (front, left, right)
-        self.sensor_range = 150.0  # max range in pixels
+        self.sensor_range = 100.0  # max range in pixels
         self.sensor_angles = [(2. * math.pi / 12) * i for i in range(12)]  # relative sensor directions
         self.visible_measurements = []  # list of visible landmarks
 
@@ -51,7 +51,7 @@ class Robot:
         v = (v_r + v_l) / 2.0
         omega = (v_r - v_l) / self.wheel_distance
 
-        # Compute new pose based on kinematics.
+        # Compute the new pose based on kinematics.
         if abs(omega) < 1e-6:
             # Straight-line motion (or very small rotation)
             new_x = self.x + v * math.cos(self.theta) * dt
@@ -84,7 +84,8 @@ class Robot:
 
         # Finally, update the orientation.
         self.theta = new_theta
-        #print(f'\rRobot Pose: x: {self.x:.2f} | y: {self.y:.2f} | θ: {self.theta:.2f}', end='', flush=True)
+        # print(f'\rRobot Pose: x: {self.x:.2f} | y: {self.y:.2f} | θ: {self.theta:.2f}', end='', flush=True)
+
 
         # Add current position to path history
         self.path_history.append((self.x, self.y))
@@ -94,7 +95,7 @@ class Robot:
 
     def circle_collides(self, x, y, maze):
         """
-        Check if a circle (with center (x, y) and radius self.radius)
+        Check if a circle (with the center (x, y) and radius self.radius)
         collides with any obstacle in the maze or screen boundaries.
         Obstacle cells are assumed to have a value of 1.
         """
@@ -136,6 +137,49 @@ class Robot:
                             return True
         return False
 
+    def get_visible_landmark_readings(self):
+        visible_measurements = []
+        cell_size = Config.CELL_SIZE
+
+        for lm_x, lm_y in Config.landmarks:
+            dx = lm_x - self.x
+            dy = lm_y - self.y
+            distance = math.hypot(dx, dy)
+
+            if distance <= self.sensor_range:
+                # Check visibility using the Bresenham-like approach
+                is_visible = True
+                x, y = self.x, self.y
+                step_dx = abs(dx)
+                step_dy = abs(dy)
+                err = step_dx - step_dy
+                sx = 1 if dx > 0 else -1
+                sy = 1 if dy > 0 else -1
+
+                while not (abs(x - lm_x) < 1 and abs(y - lm_y) < 1):
+                    cell_x = int(x // cell_size)
+                    cell_y = int(y // cell_size)
+
+                    if (0 <= cell_x < Config.GRID_WIDTH and
+                            0 <= cell_y < Config.GRID_HEIGHT and
+                            Config.maze_grid[cell_y, cell_x] == 1):
+                        is_visible = False
+                        break
+
+                    e2 = 2 * err
+                    if e2 > -step_dy:
+                        err -= step_dy
+                        x += sx
+                    if e2 < step_dx:
+                        err += step_dx
+                        y += sy
+
+                if is_visible:
+                    bearing = math.atan2(dy, dx) - self.theta
+                    z = np.array([distance, ((bearing ) % (2 * math.pi))])
+                    visible_measurements.append((z, np.array([lm_x, lm_y])))
+        self.visible_measurements = visible_measurements
+
     def get_sensor_readings(self, maze):
         """
             Simulate sensor readings using ray-casting.
@@ -161,7 +205,7 @@ class Robot:
 
     def set_velocity(self, action: Action):
         """
-        Set robot's right and left wheel velocities.
+        Set the robot's right and left-wheel velocities.
         """
         if action == Action.INCREASE_RIGHT:
             self.right_velocity = min(self.right_velocity + self.dv, self.max_speed)
@@ -179,12 +223,6 @@ class Robot:
 
     def get_linear_velocity(self):
         return (self.right_velocity + self.left_velocity) / 2
-    
-    def get_right_wheel_velocity(self):
-        return self.right_velocity
-    
-    def get_left_wheel_velocity(self):
-        return self.left_velocity
 
     def get_angular_velocity(self):
         return (self.right_velocity - self.left_velocity) / self.wheel_distance
