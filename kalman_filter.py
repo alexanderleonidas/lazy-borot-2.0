@@ -13,9 +13,9 @@ class KalmanFilter:
         self.A = np.eye(3)  # State transition matrix
         self.B = np.zeros((3, 2))  # Control input matrix
         
-        self.R = np.eye(3) * 10
+        self.R = np.eye(3) * 0.1 # Process noise covariance
         self.C = np.eye(3)
-        self.Q = np.eye(3) * 10
+        self.Q = np.eye(3) * 0.1 # Measurement noise covariance
         self.I = np.eye(3)
 
         self.belief_history = []
@@ -43,9 +43,6 @@ class KalmanFilter:
         self.covariance = np.matmul((np.matmul(self.A, self.covariance)), self.A.T) + self.R
 
         # Correction step
-        # Kalman gain
-        K = np.matmul(np.matmul(self.covariance, self.C.T),
-                      np.linalg.inv(np.matmul(np.matmul(self.C, self.covariance), self.C.T) + self.Q))
 
         # Correct the predicted pose through the visible landmarks
         triangulated_pose = self.triangulate_pose_from_landmarks()
@@ -56,16 +53,18 @@ class KalmanFilter:
                 self.belief_history.pop(0)
             return
         # print("\rVisible landmarks detected — correction applied.", end='', flush=True)
-        
-        z = triangulated_pose
+        else:
+            # Kalman gain
+            k_gain = np.matmul(np.matmul(self.covariance, self.C.T),
+                          np.linalg.inv(np.matmul(np.matmul(self.C, self.covariance), self.C.T) + self.Q))
 
-        self.pose = self.pose + np.matmul(K, (z - np.dot(self.C, self.pose)))
-        self.covariance = np.matmul((self.I - np.matmul(K, self.C)), self.covariance)
+            self.pose = self.pose + np.matmul(k_gain, (triangulated_pose - np.dot(self.C, self.pose)))
+            self.covariance = np.matmul((self.I - np.matmul(k_gain, self.C)), self.covariance)
 
-        self.belief_history.append(self.pose)
-        self.calculate_uncertainty_ellipse()
-        if len(self.belief_history) > self.max_history_length:
-            self.belief_history.pop(0)
+            self.belief_history.append(self.pose)
+            self.calculate_uncertainty_ellipse()
+            if len(self.belief_history) > self.max_history_length:
+                self.belief_history.pop(0)
 
     def triangulate_pose_from_landmarks(self):
         """
@@ -130,6 +129,8 @@ class KalmanFilter:
                 err2_2 = (bearing2_cand2 - b2 + np.pi) % (2 * np.pi) - np.pi
                 consistency_err2 = abs((err1_2 - err2_2 + np.pi) % (2 * np.pi) - np.pi)
 
+                # rx, ry = (rx_candidate1+rx_candidate2)/2, (ry_candidate1 + ry_candidate2)/2
+                # theta = atan2(sin((err1_1+err1_2)/2) + sin((err2_1+err2_2)/2), np.cos((err1_1+err1_2)/2) + np.cos((err2_1+err2_2)/2))
                 # Choose the candidate position and estimate theta
                 if consistency_err1 < consistency_err2:
                     rx, ry = rx_candidate1, ry_candidate1

@@ -10,7 +10,7 @@ def main():
     picasso = Picasso(screen)
     pygame.display.set_caption("Robot Simulator (step 1)")
     # Create a robot instance at the starting position.
-    robot = Robot(Config.CELL_SIZE * 1.5, Config.CELL_SIZE * 1.5, 0)
+    robot = Robot(Config.start_pos[0], Config.start_pos[1], 0)
 
     # Main simulation loop
     running = True
@@ -38,13 +38,8 @@ def main():
         # Update the robot's state with a fixed time step.
         dt = 1/fps
         robot.update_motion(dt, Config.maze_grid)
-        
         robot.filter.pose_tracking(dt)
-        # ep = robot.filter.triangulate_pose_from_landmarks()
-        # if ep is not None:
-        #     str1 = f'\rRobot Pose: x: {robot.x:.2f} | y: {robot.y:.2f} | θ: {robot.theta:.2f} | '
-        #     str2 = f'Triangulated Pose: x: {ep[0]:.2f} | y: {ep[1]:.2f} | θ: {ep[2]:.2f}'
-        #     print(str1 + str2, end='', flush=True)
+
         # --- Rendering ---
         picasso.draw_map(robot, belief_history=robot.filter.belief_history)
         picasso.update_display(fps)
