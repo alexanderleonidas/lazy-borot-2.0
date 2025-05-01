@@ -3,7 +3,7 @@ import numpy as np
 import math
 from config import Config
 from kalman_filter import KalmanFilter
-
+from extended_kalman_filter import ExtendedKalmanFilter
 
 class Action(Enum):
     INCREASE_RIGHT = 0,
@@ -14,7 +14,7 @@ class Action(Enum):
     NOTHING = 5
 
 class Robot:
-    def __init__(self, x, y, theta):
+    def __init__(self, x, y, theta, filter_type='KF'):
         # True robot state (ground truth)
         self.x = x
         self.y = y
@@ -24,21 +24,26 @@ class Robot:
         # Extra Variables
         self.last_collision_cell = None  # stores (i, j) of last obstacle collision
         self.path_history = []
-        self.max_history_length = 300
+        self.max_history_length = 200
 
         # Wheel configuration
-        self.max_speed = 50
-        self.dv = 5  # pixels per second
+        self.max_speed = 80
+        self.dv = 10  # pixels per second
         self.wheel_distance = self.radius*2  # distance between wheels in pixels
         self. right_velocity = 0
         self.left_velocity = 0
 
         # Sensor configuration: simulating 3 sensors (front, left, right)
-        self.sensor_range = 100.0  # max range in pixels
+        self.sensor_range = 50.0  # max range in pixels
         self.sensor_angles = [(2. * math.pi / 12) * i for i in range(12)]  # relative sensor directions
         self.visible_measurements = []  # list of visible landmarks
 
-        self.filter = KalmanFilter(self)
+        if filter_type == 'KF':
+            self.filter = KalmanFilter(self)
+        elif filter_type == 'EKF':
+            self.filter = ExtendedKalmanFilter(self)
+        else:
+            self.filter = None
 
     def update_motion(self, dt, maze):
         """
@@ -176,7 +181,7 @@ class Robot:
 
                 if is_visible:
                     bearing = math.atan2(dy, dx) - self.theta
-                    z = np.array([distance, ((bearing ) % (2 * math.pi))])
+                    z = np.array([distance, (bearing % (2 * math.pi))])
                     visible_measurements.append((z, np.array([lm_x, lm_y])))
         self.visible_measurements = visible_measurements
 

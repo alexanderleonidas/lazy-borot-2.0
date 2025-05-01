@@ -49,6 +49,7 @@ class KalmanFilter:
         if triangulated_pose is None:
             # print("\rNo visible landmarks — correction skipped.", end='', flush=True)
             self.belief_history.append(self.pose)
+            self.calculate_uncertainty_ellipse()
             if len(self.belief_history) > self.max_history_length:
                 self.belief_history.pop(0)
             return
@@ -218,7 +219,7 @@ class KalmanFilter:
                 'timestamp': pygame.time.get_ticks()
             })
 
-            if len(self.uncertainty_history) > 100:
+            if len(self.uncertainty_history) > 20:
                 self.uncertainty_history.pop(0)
 
             return semi_major, semi_minor, angle_deg
