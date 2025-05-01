@@ -10,7 +10,7 @@ def main():
     picasso = Picasso(screen)
     pygame.display.set_caption("Robot Simulator (step 1)")
     # Create a robot instance at the starting position.
-    robot = Robot(Config.start_pos[0], Config.start_pos[1], 0)
+    robot = Robot(Config.start_pos[0], Config.start_pos[1], 0, filter_type='KF')
 
     # Main simulation loop
     running = True
@@ -41,6 +41,12 @@ def main():
         robot.filter.pose_tracking(dt)
 
         # --- Rendering ---
+        # Create the caption string (using f-string for easy formatting)
+        caption = (
+            f"Robot Sim | V_L: {robot.left_velocity:.2f} | V_R: {robot.right_velocity:.2f} | "
+            f"Theta: {robot.theta:.1f}rad"
+        )
+        pygame.display.set_caption(caption)
         picasso.draw_map(robot, belief_history=robot.filter.belief_history)
         picasso.update_display(fps)
     picasso.quit()

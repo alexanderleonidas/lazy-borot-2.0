@@ -10,7 +10,7 @@ class Config:
     Configuration class for the application.
     """
     CELL_SIZE = 35  # pixels per cell
-    maze_grid = Maps.generate_maze(23,23, complexity=0.5)
+    maze_grid = Maps.generate_maze(25,25, complexity=0)
     # landmarks = Maps.find_random_landmarks(maze_grid, CELL_SIZE, num_landmarks=30)
     landmarks = Maps.find_corner_landmarks(maze_grid, CELL_SIZE)
     start_pos = Maps.find_empty_spot(maze_grid, CELL_SIZE)
