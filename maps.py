@@ -4,6 +4,37 @@ import random
 class Maps:
 
     @staticmethod
+    def find_empty_spot(grid, cell_size=None):
+        """ Find a random empty spot (cell with value 0) in the grid and return its coordinates. """
+        if not grid.any() or not grid[0].any():
+            return None
+
+        rows, cols = grid.shape
+        empty_cells = []
+
+        # Find all empty cells
+        for y in range(rows):
+            for x in range(cols):
+                if grid[y][x] == 0:
+                    empty_cells.append((x, y))
+
+        if not empty_cells:
+            return None  # No empty cells found
+
+        # Choose a random empty cell
+        grid_x, grid_y = random.choice(empty_cells)
+
+        # Convert to Cartesian coordinates if cell_size is provided
+        if cell_size is not None:
+            # Add random offset within the cell to avoid placing everything at cell corners
+            offset_x = 0.5 * cell_size
+            offset_y = 0.5 * cell_size
+            return (grid_x * cell_size) + offset_x, (grid_y * cell_size) + offset_y
+
+        # Otherwise return grid coordinates
+        return grid_x, grid_y
+
+    @staticmethod
     def generate_bordered_map(width: int, height: int) -> np.ndarray:
         grid = np.zeros((height, width), dtype=int)
         grid[0, :] = 1
@@ -13,67 +44,112 @@ class Maps:
         return grid
 
     @staticmethod
-    def generate_building_map(width: int, height: int) -> np.ndarray:
-        grid = np.ones((height, width), dtype=int)
+    def generate_maze(width: int, height: int, complexity: float = 1.0):
+        """
+        Generates a maze as a 2D list (bitmap) of 0s (paths) and 1s (walls).
 
-        room_w, room_h = 6, 4
-        padding = 2
-        room_centers = []
+        Args:
+            width: The width of the maze grid. Recommended >= 3.
+            height: The height of the maze grid. Recommended >= 3.
+            complexity: A float between 0.0 and 1.0.
+                        1.0 creates a dense, complex maze structure.
+                        0.0 creates a mostly open area with few obstacles.
+                        Values in between interpolate the density.
 
-        for i in range(padding, height - room_h, room_h + padding):
-            for j in range(padding, width - room_w, room_w + padding):
-                if random.random() < 0.8:
-                    grid[i:i+room_h, j:j+room_w] = 0
-                    cx, cy = i + room_h // 2, j + room_w // 2
-                    room_centers.append((cx, cy))
+        Returns:
+            A list of lists representing the maze bitmap (0=path, 1=wall).
+            Returns an empty list if the width or height are too small.
+        """
+        if width < 3 or height < 3:
+            print("Warning: Maze dimensions should be at least 3x3 for meaningful generation.")
+            # Return a simple grid for very small sizes or handle as an error
+            if complexity > 0.5:
+                return [[1] * width for _ in range(height)]  # Mostly walls
+            else:
+                return [[0] * width for _ in range(height)]  # Mostly empty
 
-        # Connect each room to the next with corridors
-        for idx, (cx, cy) in enumerate(room_centers):
-            if idx + 1 < len(room_centers):
-                nx, ny = room_centers[idx + 1]
-                if random.random() < 0.5:
-                    # Horizontal then vertical
-                    grid[cx, min(cy, ny):max(cy, ny)+1] = 0
-                    grid[min(cx, nx):max(cx, nx)+1, ny] = 0
-                else:
-                    # Vertical then horizontal
-                    grid[min(cx, nx):max(cx, nx)+1, cy] = 0
-                    grid[nx, min(cy, ny):max(cy, ny)+1] = 0
+        # Clamp complexity
+        complexity = max(0.0, min(1.0, complexity))
 
-        grid[1][0] = 0
-        grid[height - 2][width - 1] = 0
-        return grid
+        # Initialize grid: 1 = Wall, 0 = Path
+        # Start with a grid full of walls
+        maze = [[1] * width for _ in range(height)]
 
-    @staticmethod
-    def generate_maze(width: int, height: int) -> np.ndarray:
-        # Ensure odd dimensions
-        width = width if width % 2 == 1 else width - 1
-        height = height if height % 2 == 1 else height - 1
+        # --- Recursive Backtracker (DFS) for base maze generation ---
+        # Choose a starting cell (must be odd coordinates for traditional carving)
+        # For simplicity here, we'll just start at (0,0) and ensure it's a path
+        start_x, start_y = 0, 0
+        maze[start_y][start_x] = 0
+        stack = [(start_x, start_y)]
+        visited_carving = {(start_x, start_y)}  # Keep track of visited cells during carving
 
-        # Initialize with walls
-        maze = np.ones((height, width), dtype=int)
+        while stack:
+            cx, cy = stack[-1]  # Current cell
 
-        def carve_passages(x: int, y: int):
-            directions = [(2, 0), (-2, 0), (0, 2), (0, -2)]
-            random.shuffle(directions)
-            for dx, dy in directions:
-                nx, ny = x + dx, y + dy
-                if 1 <= nx < height - 1 and 1 <= ny < width - 1:
-                    if maze[nx][ny] == 1:
-                        maze[nx][ny] = 0
-                        maze[x + dx // 2][y + dy // 2] = 0
-                        carve_passages(nx, ny)
+            # Find unvisited neighbors (2 steps away)
+            neighbors = []
+            for dx, dy in [(0, -2), (0, 2), (-2, 0), (2, 0)]:
+                nx, ny = cx + dx, cy + dy
+                # Check bounds and if the neighbor cell is currently a wall (effectively unvisited)
+                if 0 <= nx < width and 0 <= ny < height and maze[ny][nx] == 1:
+                    neighbors.append((nx, ny))
 
-        # Start carving from a random odd cell
-        start_x, start_y = 1, 1
-        maze[start_x][start_y] = 0
-        carve_passages(start_x, start_y)
+            if neighbors:
+                # Choose a random neighbor
+                nx, ny = random.choice(neighbors)
 
-        # Entrance and exit
-        maze[1][0] = 0
-        maze[height - 2][width - 1] = 0
+                # Carve path to the neighbor
+                # Mark neighbor as path
+                maze[ny][nx] = 0
+                visited_carving.add((nx, ny))
 
-        return maze
+                # Carve the wall between current cell and neighbor
+                wall_x, wall_y = cx + (dx // 2), cy + (dy // 2)  # Get the wall cell coordinates
+                # Find the wall coordinates based on direction chosen
+                if nx == cx + 2:
+                    wall_x = cx + 1; wall_y = cy
+                elif nx == cx - 2:
+                    wall_x = cx - 1; wall_y = cy
+                elif ny == cy + 2:
+                    wall_x = cx; wall_y = cy + 1
+                elif ny == cy - 2:
+                    wall_x = cx; wall_y = cy - 1
+
+                if 0 <= wall_x < width and 0 <= wall_y < height:  # Ensure wall is within bounds
+                    maze[wall_y][wall_x] = 0
+
+                # Move to the neighbor
+                stack.append((nx, ny))
+            else:
+                # Backtrack
+                stack.pop()
+
+        # --- Complexity Adjustment: Remove Walls ---
+        # Find potential internal walls to remove (walls separating two paths)
+        removable_walls = []
+        for r in range(1, height - 1):
+            for c in range(1, width - 1):
+                if maze[r][c] == 1:  # If it's a wall
+                    # Check if it's between two path cells (horizontally or vertically)
+                    is_horizontal_divider = (maze[r][c - 1] == 0 and maze[r][c + 1] == 0)
+                    is_vertical_divider = (maze[r - 1][c] == 0 and maze[r + 1][c] == 0)
+                    if is_horizontal_divider or is_vertical_divider:
+                        removable_walls.append((c, r))  # Store as (x, y) or (col, row)
+
+        # Calculate the number of walls to remove based on INVERSE complexity
+        # (1.0 - complexity) gives proportion to remove. 0.0 complexity removes max, 1.0 removes 0.
+        num_walls_to_remove = int(len(removable_walls) * (1.0 - complexity))
+
+        # Shuffle the list of removable walls
+        random.shuffle(removable_walls)
+
+        # Remove the walls
+        for i in range(num_walls_to_remove):
+            if removable_walls:  # Check if list is not empty
+                wall_x, wall_y = removable_walls.pop()
+                maze[wall_y][wall_x] = 0  # Turn wall into path
+
+        return np.array(maze)
 
     @staticmethod
     def find_random_landmarks(grid, cell_size, num_landmarks=50, min_distance=None):

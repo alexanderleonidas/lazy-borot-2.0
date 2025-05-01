@@ -70,7 +70,7 @@ class Picasso:
             self.screen.blit(text, (text_x, text_y))
             pygame.draw.line(self.screen, Config.GREEN, (int(robot.x), int(robot.y)), (text_x, text_y), 1)
 
-    def _draw_path_history(self, path_history, color=(0, 255, 255)):
+    def _draw_path_history(self, path_history):
         if len(path_history) < 2:
             return
 
