@@ -15,13 +15,13 @@ class Picasso:
         self.screen = screen
         self.clock = pygame.time.Clock()
 
-    def draw_map(self, robot, show_sensors=False, belief_history=None, occupancy_grid=None):
+    def draw_map(self, robot, show_sensors=False):
         self._draw_maze()
-        self._draw_velocities(robot.left_velocity, robot.right_velocity, robot.theta)
+        if hasattr(robot, 'mapping') and robot.mapping:
+            self._draw_occupancy_grid(robot.mapping)
+        # Draw ground truth robot position last (or optionally disable)
         if show_sensors: self._draw_sensor_readings(robot)
         self._draw_visible_landmarks(robot)
-        self._draw_occupancy_grid(robot.mapping)
-        # Draw ground truth robot position last (or optionally disable)
         self._draw_robot(robot)
         self._draw_path_history(robot.path_history)  # Ground truth path
         self._draw_landmarks()
@@ -31,14 +31,14 @@ class Picasso:
             # Draw uncertainty ellipse based on filter's covariance
             self._draw_uncertainty_ellipse_history(robot)
             # Draw the estimated pose from the filter
-            # self._draw_estimated_pose(robot.filter.pose)
+            self._draw_estimated_pose(robot.filter.pose)
             # Draw belief history if available
-            if belief_history:
-                self._draw_belief_history(belief_history)
+            self._draw_belief_history(robot.filter.belief_history)
 
         # Highlight the collision if one occurred
         if robot.last_collision_cell:
             self._draw_collision_marker(robot.last_collision_cell, robot.x, robot.y)
+        self._draw_velocities(robot.left_velocity, robot.right_velocity, robot.theta)
 
     def _draw_maze(self):
         self.screen.fill(Config.WHITE)
@@ -60,8 +60,7 @@ class Picasso:
         pygame.draw.line(self.screen, Config.RED, (x, y), (end_x, end_y), 2)
 
     def _draw_sensor_readings(self, robot):
-        sensor_readings = robot.get_sensor_readings(Config.maze_grid)
-        for i, reading in enumerate(sensor_readings):
+        for i, reading in enumerate(robot.sensor_readings):
             text = self.small_font.render(f"{reading[0]:.0f}", True, Config.RED)
             angle = robot.theta + robot.sensor_angles[i]
             text_x = int(robot.x + (reading[0]) * math.cos(angle))
@@ -103,7 +102,7 @@ class Picasso:
         pygame.draw.line(self.screen, Config.PURPLE, (x, y), (end_x, end_y), 2)
 
     def _draw_velocities(self, l_v, r_v, theta):
-        vel_text = self.small_font.render(f"l_vel: x={l_v:.1f} | r_vel={r_v:.1f} | θ={theta:.1f}",True, Config.RED)
+        vel_text = self.small_font.render(f"l_vel: x={l_v:.1f} | r_vel={r_v:.1f} | θ={theta:.1f}", True, Config.RED)
         self.screen.blit(vel_text, (Config.WINDOW_WIDTH - 220, 20))
 
     def _draw_landmarks(self):
@@ -111,7 +110,6 @@ class Picasso:
         for landmark in Config.landmarks:
             cx, cy = landmark
             pygame.draw.circle(self.screen, Config.ORANGE, (cx, cy), tile_size // 10)
-
 
     def _draw_collision_marker(self, cell_pos: tuple[int, int], robot_x: float, robot_y: float):
         """
@@ -174,13 +172,12 @@ class Picasso:
         robot.get_visible_landmark_readings()
         for _, (lm_x, lm_y) in robot.visible_measurements:
             pygame.draw.line(self.screen, Config.GREEN,
-                            (int(robot.x), int(robot.y)),
-                            (int(lm_x), int(lm_y)), 1)
+                             (int(robot.x), int(robot.y)),
+                             (int(lm_x), int(lm_y)), 1)
             pygame.draw.circle(self.screen, Config.RED,
-                        (int(lm_x), int(lm_y)),
-                        Config.CELL_SIZE // 8, 2)
+                               (int(lm_x), int(lm_y)),
+                               Config.CELL_SIZE // 8, 2)
 
-    
     def _draw_belief_history(self, belief_history, dash_length=4, gap_length=3):
         """
         Draws the estimated trajectory (belief history) as a dashed Cyan line.
@@ -201,7 +198,7 @@ class Picasso:
 
         for i in range(len(points) - 1):
             if draw_segment:
-                pygame.draw.line(self.screen, Config.PURPLE, points[i], points[i + 1], 2) # Cyan color
+                pygame.draw.line(self.screen, Config.PURPLE, points[i], points[i + 1], 2)  # Cyan color
 
             segment_count += 1
 
@@ -211,7 +208,6 @@ class Picasso:
             elif not draw_segment and segment_count >= gap_length:
                 draw_segment = True
                 segment_count = 0
-
 
     def _draw_uncertainty_ellipse_history(self, robot, max_history_draw=20, max_alpha_outline=100):
         """
@@ -286,7 +282,6 @@ class Picasso:
 
     def _draw_occupancy_grid(self, occupancy_grid):
         grayscale = occupancy_grid.get_grayscale_grid()
-        surface = pygame.surfarray.make_surface(np.stack([grayscale]*3, axis=-1).swapaxes(0, 1))
+        surface = pygame.surfarray.make_surface(np.stack([grayscale] * 3, axis=-1).swapaxes(0, 1))
         surface = pygame.transform.scale(surface, (occupancy_grid.width * Config.CELL_SIZE, occupancy_grid.height * Config.CELL_SIZE))
         self.screen.blit(surface, (0, 0))
-

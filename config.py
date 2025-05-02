@@ -8,14 +8,38 @@ from maps import Maps
 class Config:
     """
     Configuration class for the application.
+    Allows specifying desired grid dimensions while keeping window size fixed.
     """
-    CELL_SIZE = 35  # pixels per cell
-    maze_grid = Maps.generate_maze(25,25, complexity=0)
-    # landmarks = Maps.find_random_landmarks(maze_grid, CELL_SIZE, num_landmarks=30)
+
+    # --- User Definable Grid Size ---
+    # Change these values to set the number of cells in the grid
+    GRID_WIDTH = 50
+    GRID_HEIGHT = 50
+
+    # --- Fixed Window Size ---
+    # Define the total window size in pixels. This will remain constant.
+    FIXED_WINDOW_WIDTH = 1000  # Pixels
+    FIXED_WINDOW_HEIGHT = 1000  # Pixels
+
+    # --- Calculated Cell Size ---
+    # Calculate cell size dynamically to fit the desired grid into the fixed window
+    # We take the minimum scale factor to ensure it fits in both dimensions.
+    cell_width_pixels = FIXED_WINDOW_WIDTH // GRID_WIDTH
+    cell_height_pixels = FIXED_WINDOW_HEIGHT // GRID_HEIGHT
+    CELL_SIZE = min(cell_width_pixels, cell_height_pixels)
+    # Ensure the cell size is at least 1 pixel
+    CELL_SIZE = max(1, CELL_SIZE)
+
+    # --- Maze and Grid Setup ---
+    # Generate maze using the desired grid dimensions
+    # NOTE: Maps.generate_maze needs height first, then width
+    maze_grid = Maps.generate_maze(GRID_HEIGHT, GRID_WIDTH, complexity=0)
+
+    # --- Landmarks and Start Position ---
+    # These functions now use the dynamically calculated CELL_SIZE
     landmarks = Maps.find_corner_landmarks(maze_grid, CELL_SIZE)
+    # landmarks = Maps.find_random_landmarks(maze_grid, CELL_SIZE, num_landmarks=30) # Alternative
     start_pos = Maps.find_empty_spot(maze_grid, CELL_SIZE)
-    # landmarks = Maps.find_corner_landmarks(maze_grid, CELL_SIZE)
-    GRID_HEIGHT, GRID_WIDTH = maze_grid.shape
 
     # Pygame window size
     WINDOW_WIDTH = GRID_WIDTH * CELL_SIZE

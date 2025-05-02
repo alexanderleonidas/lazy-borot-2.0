@@ -15,7 +15,7 @@ class Action(Enum):
     NOTHING = 5
 
 class Robot:
-    def __init__(self, x, y, theta, filter_type='KF'):
+    def __init__(self, x, y, theta, filter_type='KF', mapping=False):
         # True robot state (ground truth)
         self.x = x
         self.y = y
@@ -29,7 +29,7 @@ class Robot:
 
         # Wheel configuration
         self.max_speed = 80
-        self.dv = 5  # pixels per second
+        self.dv = 10  # pixels per second
         self.wheel_distance = self.radius*2  # distance between wheels in pixels
         self. right_velocity = 0
         self.left_velocity = 0
@@ -38,15 +38,18 @@ class Robot:
         self.sensor_range = 50.0  # max range in pixels
         self.sensor_angles = [(2. * math.pi / 12) * i for i in range(12)]  # relative sensor directions
         self.visible_measurements = []  # list of visible landmarks
-        self.readings = []  # list of sensor readings
+        self.sensor_readings = []  # list of sensor readings
+
+        # --- SLAM / Localization Components ---
         if filter_type == 'KF':
             self.filter = KalmanFilter(self)
         elif filter_type == 'EKF':
             self.filter = ExtendedKalmanFilter(self)
         else:
             self.filter = None
-        
-        self.mapping = OccupancyGrid(self)
+
+        if mapping:
+            self.mapping = OccupancyGrid(self)
 
     def update_motion(self, dt, maze):
         """
@@ -99,6 +102,8 @@ class Robot:
         self.path_history.append((self.x, self.y))
         if len(self.path_history) > self.max_history_length:
             self.path_history.pop(0)
+
+        self.get_sensor_readings(maze)
         
 
     def circle_collides(self, x, y, maze):
@@ -193,7 +198,7 @@ class Robot:
         Simulate sensor readings using ray-casting.
         Returns list of (z, b) tuples — distance and relative bearing.
         """
-        readings = []
+        sensor_readings = []
         noise_std = 0.1
         for angle in self.sensor_angles:
             sensor_angle = self.theta + angle
@@ -207,9 +212,8 @@ class Robot:
                     break
                 distance += 1
             noisy_distance = max(0, distance + np.random.normal(0, noise_std))
-            readings.append((noisy_distance, angle - self.theta))  # angle here is absolute
-        self.readings = readings
-        return readings
+            sensor_readings.append((noisy_distance, angle))
+        self.sensor_readings = sensor_readings
 
     def set_velocity(self, action: Action):
         """
