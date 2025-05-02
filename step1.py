@@ -39,6 +39,7 @@ def main():
         dt = 1/fps
         robot.update_motion(dt, Config.maze_grid)
         robot.filter.pose_tracking(dt)
+        robot.mapping.update_map(robot.get_pose(), robot.readings)
 
         # --- Rendering ---
         # Create the caption string (using f-string for easy formatting)
@@ -47,7 +48,7 @@ def main():
             f"Theta: {robot.theta:.1f}rad"
         )
         pygame.display.set_caption(caption)
-        picasso.draw_map(robot, belief_history=robot.filter.belief_history)
+        picasso.draw_map(robot, belief_history=robot.filter.belief_history, show_sensors=True)
         picasso.update_display(fps)
     picasso.quit()
 

@@ -15,12 +15,12 @@ class Picasso:
         self.screen = screen
         self.clock = pygame.time.Clock()
 
-    def draw_map(self, robot, show_sensors=False, belief_history=None):
+    def draw_map(self, robot, show_sensors=False, belief_history=None, occupancy_grid=None):
         self._draw_maze()
         self._draw_velocities(robot.left_velocity, robot.right_velocity, robot.theta)
         if show_sensors: self._draw_sensor_readings(robot)
         self._draw_visible_landmarks(robot)
-
+        self._draw_occupancy_grid(robot.mapping)
         # Draw ground truth robot position last (or optionally disable)
         self._draw_robot(robot)
         self._draw_path_history(robot.path_history)  # Ground truth path
@@ -62,10 +62,10 @@ class Picasso:
     def _draw_sensor_readings(self, robot):
         sensor_readings = robot.get_sensor_readings(Config.maze_grid)
         for i, reading in enumerate(sensor_readings):
-            text = self.small_font.render(f"{reading:.0f}", True, Config.RED)
+            text = self.small_font.render(f"{reading[0]:.0f}", True, Config.RED)
             angle = robot.theta + robot.sensor_angles[i]
-            text_x = int(robot.x + (reading) * math.cos(angle))
-            text_y = int(robot.y + (reading) * math.sin(angle))
+            text_x = int(robot.x + (reading[0]) * math.cos(angle))
+            text_y = int(robot.y + (reading[0]) * math.sin(angle))
             self.screen.blit(text, (text_x, text_y))
             pygame.draw.line(self.screen, Config.GREEN, (int(robot.x), int(robot.y)), (text_x, text_y), 1)
 
@@ -283,3 +283,10 @@ class Picasso:
             rotated_surface = pygame.transform.rotate(ellipse_surface, angle_deg)
             rotated_rect = rotated_surface.get_rect(center=(center_x, center_y))
             self.screen.blit(rotated_surface, rotated_rect)
+
+    def _draw_occupancy_grid(self, occupancy_grid):
+        grayscale = occupancy_grid.get_grayscale_grid()
+        surface = pygame.surfarray.make_surface(np.stack([grayscale]*3, axis=-1).swapaxes(0, 1))
+        surface = pygame.transform.scale(surface, (occupancy_grid.width * Config.CELL_SIZE, occupancy_grid.height * Config.CELL_SIZE))
+        self.screen.blit(surface, (0, 0))
+
