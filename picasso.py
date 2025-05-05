@@ -31,7 +31,7 @@ class Picasso:
             # Draw uncertainty ellipse based on filter's covariance
             self._draw_uncertainty_ellipse_history(robot)
             # Draw the estimated pose from the filter
-            self._draw_estimated_pose(robot.filter.pose)
+            # self._draw_estimated_pose(robot.filter.pose)
             # Draw belief history if available
             self._draw_belief_history(robot.filter.belief_history)
 

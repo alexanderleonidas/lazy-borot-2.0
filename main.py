@@ -1,9 +1,13 @@
 import pygame
+import time
 from picasso import Picasso
 from config import Config
 from robot import Robot, Action
+from utils import save_run, plot_robot_pose_data
 
-def main():
+
+def main(save_results=False, plot_results=False):
+    run_id = str(int(time.time()))
     fps = 30
     pygame.init()
     screen = pygame.display.set_mode((Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT))
@@ -14,6 +18,7 @@ def main():
 
     # Main simulation loop
     running = True
+    time_step = 0
     while running:
         # Process events
         for event in pygame.event.get():
@@ -37,14 +42,20 @@ def main():
 
         # Update the robot's state with a fixed time step.
         dt = 1/fps
+        time_step += 1
         robot.update_motion(dt, Config.maze_grid)
-        robot.filter.pose_tracking(dt)
+        if hasattr(robot, 'filter'):
+            robot.filter.pose_tracking(dt)
         if hasattr(robot, 'mapping'):
             robot.mapping.update(robot.get_pose(), robot.sensor_readings)
+        if save_results:
+            save_run(run_id, robot, time_step, filter_instance=robot.filter)
         # --- Rendering ---
         picasso.draw_map(robot, show_sensors=True)
         picasso.update_display(fps)
+    if save_results: save_run(run_id, robot, time_step+1, filter_instance=robot.filter, maze=Config.maze_grid)
+    if plot_results: plot_robot_pose_data(run_id)
     picasso.quit()
 
 if __name__ == "__main__":
-    main()
+    main(True, True)

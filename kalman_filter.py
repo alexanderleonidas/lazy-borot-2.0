@@ -1,5 +1,5 @@
 import numpy as np
-from math import cos, sin, atan2, sqrt, acos, degrees
+from math import cos, sin, atan2, sqrt, acos, pi
 from itertools import combinations
 
 import pygame
@@ -40,6 +40,7 @@ class KalmanFilter:
         ])
 
         self.pose = np.dot(self.A, self.pose) + np.dot(self.B, u)
+        self.pose[2] = self.pose[2] % (2 * pi)
         self.covariance = np.matmul((np.matmul(self.A, self.covariance)), self.A.T) + self.R
 
         # Correction step
@@ -60,6 +61,7 @@ class KalmanFilter:
                           np.linalg.inv(np.matmul(np.matmul(self.C, self.covariance), self.C.T) + self.Q))
 
             self.pose = self.pose + np.matmul(k_gain, (triangulated_pose - np.dot(self.C, self.pose)))
+            self.pose[2] = self.pose[2] % (2 * pi)
             self.covariance = np.matmul((self.I - np.matmul(k_gain, self.C)), self.covariance)
 
             self.belief_history.append(self.pose)
@@ -208,21 +210,20 @@ class KalmanFilter:
 
             # Angle of the major axis is the angle of the corresponding eigenvector
             major_eigenvector = eigenvectors[:, major_idx]
-            angle_rad = atan2(major_eigenvector[1], major_eigenvector[0])
-            angle_deg = degrees(angle_rad)
+            angle_rad = atan2(major_eigenvector[1], major_eigenvector[0]) % 2*pi
 
             self.uncertainty_history.append({
                 'center': (self.pose[0], self.pose[1]),
                 'semi_major': semi_major,
                 'semi_minor': semi_minor,
-                'angle_deg': angle_deg,
+                'angle_rad': angle_rad,
                 'timestamp': pygame.time.get_ticks()
             })
 
             if len(self.uncertainty_history) > 20:
                 self.uncertainty_history.pop(0)
 
-            return semi_major, semi_minor, angle_deg
+            return semi_major, semi_minor, angle_rad
 
         except np.linalg.LinAlgError:
             # Matrix might be singular or other linear algebra issues

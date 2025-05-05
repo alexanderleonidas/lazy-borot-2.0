@@ -15,12 +15,12 @@ class Action(Enum):
     NOTHING = 5
 
 class Robot:
-    def __init__(self, x, y, theta, filter_type='KF', mapping=False):
+    def __init__(self, x, y, theta, filter_type=None, mapping=False):
         # True robot state (ground truth)
         self.x = x
         self.y = y
         self.theta = theta  # in radians
-        self.radius = 10.  # for drawing the robot
+        self.radius = 7.  # for drawing the robot
 
         # Extra Variables
         self.last_collision_cell = None  # stores (i, j) of last obstacle collision
@@ -45,8 +45,6 @@ class Robot:
             self.filter = KalmanFilter(self)
         elif filter_type == 'EKF':
             self.filter = ExtendedKalmanFilter(self)
-        else:
-            self.filter = None
 
         if mapping:
             self.mapping = OccupancyGrid(self)
@@ -79,7 +77,7 @@ class Robot:
             new_x = cos_dt * (self.x - icc_x) - sin_dt * (self.y - icc_y) + icc_x
             new_y = sin_dt * (self.x - icc_x) + cos_dt * (self.y - icc_y) + icc_y
             new_theta = (self.theta + delta_theta) % (2 * math.pi)
-        
+
 
         # --- Strict collision detection using the robot's circular footprint ---
         # First, try to update fully if the new position is free.
@@ -104,7 +102,7 @@ class Robot:
             self.path_history.pop(0)
 
         self.get_sensor_readings(maze)
-        
+
 
     def circle_collides(self, x, y, maze):
         """

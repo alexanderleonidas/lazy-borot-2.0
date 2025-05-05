@@ -54,7 +54,7 @@ class ExtendedKalmanFilter: # Renamed for clarity
         omega = self.robot.get_angular_velocity()
         theta = self.pose[2]
 
-        # 1. Predict state using non-linear motion model f(x, u)
+        # 1. Predict state using non-linear motion model g(u, x)
         delta_x = v * dt * cos(theta)
         delta_y = v * dt * sin(theta)
         delta_theta = omega * dt
@@ -62,25 +62,22 @@ class ExtendedKalmanFilter: # Renamed for clarity
         predicted_pose = self.pose + np.array([delta_x, delta_y, delta_theta])
         predicted_pose[2] = self._normalize_angle(predicted_pose[2]) # Normalize angle
 
-        # 2. Calculate Jacobian of motion model F = ∂f/∂x
-        #    Evaluated at the *current* state self.pose (or predicted_pose, conventions vary)
-        F = np.array([
+        # 2. Calculate Jacobian of motion model G = ∂g/∂x
+        G = np.array([
             [1.0, 0.0, -v * dt * sin(theta)],
             [0.0, 1.0,  v * dt * cos(theta)],
             [0.0, 0.0, 1.0]
         ])
 
-        # 3. Predict covariance P_k|k-1 = F * P_k-1|k-1 * F^T + R
-        predicted_covariance = F @ self.covariance @ F.T + self.R
+        # 3. Predict covariance P_k|k-1 = G * P_k-1|k-1 * G^T + R
+        predicted_covariance = G @ self.covariance @ G.T + self.R
 
         # Update internal state *after* using the current state for the Jacobin etc.
         self.pose = predicted_pose
         self.covariance = predicted_covariance
 
-
         # --- EKF Correction Step (Iterate through visible landmarks) ---
 
-        num_landmarks_processed = 0
         # Make a copy to avoid issues if the list changes during iteration
         visible_measurements = list(self.robot.visible_measurements)
 
@@ -142,15 +139,14 @@ class ExtendedKalmanFilter: # Renamed for clarity
                 self.pose[2] = self._normalize_angle(self.pose[2]) # Normalize angle
 
                 # 6. Update covariance estimate P_k|k = (I - K * H) * P_k|k-1
-                # Using Joseph form for better numerical stability:
+                # Using the Joseph form for better numerical stability:
                 # P = (I - KH)P(I - KH)^T + KRK^T
                 I_KH = self.I - K @ H
                 self.covariance = I_KH @ self.covariance @ I_KH.T + K @ self.Q @ K.T
                 # Simpler form (potentially less stable):
                 # self.covariance = (self.I - K @ H) @ self.covariance
 
-                num_landmarks_processed += 1
-                break
+                break # Break after one landmark is found
 
         # print(f"\rEKF update complete. Processed {num_landmarks_processed} landmarks. Pose: [{self.pose[0]:.2f}, {self.pose[1]:.2f}, {degrees(self.pose[2]):.1f}]", end='', flush=True)
 
@@ -193,19 +189,18 @@ class ExtendedKalmanFilter: # Renamed for clarity
             semi_major = confidence_sigma * sqrt(eigenvalues[major_idx])
             semi_minor = confidence_sigma * sqrt(eigenvalues[minor_idx])
             major_eigenvector = eigenvectors[:, major_idx]
-            angle_rad = atan2(major_eigenvector[1], major_eigenvector[0])
-            angle_deg = degrees(angle_rad)
+            angle_rad = atan2(major_eigenvector[1], major_eigenvector[0]) %(2*pi)
 
             self.uncertainty_history.append({
                 'center': (self.pose[0], self.pose[1]),
                 'semi_major': semi_major,
                 'semi_minor': semi_minor,
-                'angle_deg': angle_deg,
+                'angle_rad': angle_rad,
                 'timestamp': pygame.time.get_ticks() # Use pygame time if available
             })
             # Apply history limit inside the main loop now
 
-            return semi_major, semi_minor, angle_deg
+            return semi_major, semi_minor, angle_rad
         except np.linalg.LinAlgError: return None
         except Exception as e: return None # Catch other errors
 
