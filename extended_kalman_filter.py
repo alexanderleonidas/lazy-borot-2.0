@@ -1,10 +1,10 @@
 import numpy as np
-from math import cos, sin, atan2, sqrt, acos, degrees, radians, pi # Added radians, pi
+from math import cos, sin, atan2, sqrt, acos, radians, pi
 
 import pygame # Keep for timestamping if needed
 
 class ExtendedKalmanFilter: # Renamed for clarity
-    def __init__(self, robot, initial_covariance=0.01, process_noise_std=(1, 1, np.radians(1)), measurement_noise_std=(1, np.radians(5))):
+    def __init__(self, robot, initial_covariance=0.01, process_noise_std=(1, 1, radians(1)), measurement_noise_std=(1, radians(5))):
         """
         Initializes the Extended Kalman Filter.
 

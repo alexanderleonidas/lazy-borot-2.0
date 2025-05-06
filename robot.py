@@ -35,7 +35,7 @@ class Robot:
         self.left_velocity = 0
 
         # Sensor configuration: simulating 3 sensors (front, left, right)
-        self.sensor_range = 50.0  # max range in pixels
+        self.sensor_range = 70.0  # max range in pixels
         self.sensor_angles = [(2. * math.pi / 12) * i for i in range(12)]  # relative sensor directions
         self.visible_measurements = []  # list of visible landmarks
         self.sensor_readings = []  # list of sensor readings
@@ -191,27 +191,53 @@ class Robot:
                     visible_measurements.append((z, np.array([lm_x, lm_y])))
         self.visible_measurements = visible_measurements
 
+    def _cast_ray(self, start_x, start_y, angle_rad, max_range, maze):
+        """
+        Helper function to cast a single ray.
+        Returns the distance to the first obstacle or max_range.
+        """
+        distance = 0
+        # More robust step size, could be 1 or smaller for finer grids
+        step_size = 1.0
+        while distance < max_range:
+            # Calculate point along the ray
+            ray_x = start_x + distance * math.cos(angle_rad)
+            ray_y = start_y + distance * math.sin(angle_rad)
+
+            # Convert to grid cell
+            test_x_cell = int(ray_x // Config.CELL_SIZE)
+            test_y_cell = int(ray_y // Config.CELL_SIZE)
+
+            # Check bounds
+            if not (0 <= test_x_cell < Config.GRID_WIDTH and 0 <= test_y_cell < Config.GRID_HEIGHT):
+                return max_range  # Hit boundary, treat as max range
+
+            # Check for obstacle
+            if maze[test_y_cell, test_x_cell] == 1:
+                return distance  # Hit obstacle
+
+            distance += step_size
+        return max_range  # No obstacle found within max_range
+
     def get_sensor_readings(self, maze):
         """
-        Simulate sensor readings using ray-casting.
-        Returns list of (z, b) tuples — distance and relative bearing.
+        Simulate sensor readings using ray-casting (for ground truth simulation).
+        This populates self.sensor_readings.
         """
-        sensor_readings = []
-        noise_std = 0.1
-        for angle in self.sensor_angles:
-            sensor_angle = self.theta + angle
-            distance = 0
-            while distance < self.sensor_range:
-                test_x = int((self.x + distance * math.cos(sensor_angle)) // Config.CELL_SIZE)
-                test_y = int((self.y + distance * math.sin(sensor_angle)) // Config.CELL_SIZE)
-                if test_x < 0 or test_x >= Config.GRID_WIDTH or test_y < 0 or test_y >= Config.GRID_HEIGHT:
-                    break
-                if maze[test_y, test_x] == 1:
-                    break
-                distance += 1
-            noisy_distance = max(0, distance + np.random.normal(0, noise_std))
-            sensor_readings.append((noisy_distance, angle))
-        self.sensor_readings = sensor_readings
+        simulated_readings = []
+        # Sensor noise for simulation (different from likelihood model's sigma_hit)
+        simulation_noise_std = 1.0  # Example: 1 pixel std dev for simulated readings
+
+        for rel_angle_rad in self.sensor_angles:
+            abs_sensor_angle = self.theta + rel_angle_rad
+            true_distance = self._cast_ray(self.x, self.y, abs_sensor_angle, self.sensor_range, maze)
+
+            # Add noise to the true distance to get a simulated measurement
+            noisy_distance = true_distance + np.random.normal(0, simulation_noise_std)
+            noisy_distance = max(0, min(noisy_distance, self.sensor_range))  # Clamp to [0, sensor_range]
+
+            simulated_readings.append((noisy_distance, rel_angle_rad))
+        self.sensor_readings = simulated_readings
 
     def set_velocity(self, action: Action):
         """

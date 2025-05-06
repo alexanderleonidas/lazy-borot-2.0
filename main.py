@@ -47,7 +47,7 @@ def main(save_results=False, plot_results=False):
         if hasattr(robot, 'filter'):
             robot.filter.pose_tracking(dt)
         if hasattr(robot, 'mapping'):
-            robot.mapping.update(robot.get_pose(), robot.sensor_readings)
+            robot.mapping.update(robot.filter.pose, robot.sensor_readings)
         if save_results:
             save_run(run_id, robot, time_step, filter_instance=robot.filter)
         # --- Rendering ---
@@ -58,4 +58,4 @@ def main(save_results=False, plot_results=False):
     picasso.quit()
 
 if __name__ == "__main__":
-    main(True, True)
+    main()
