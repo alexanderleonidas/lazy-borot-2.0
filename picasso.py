@@ -30,8 +30,6 @@ class Picasso:
         if hasattr(robot, 'filter') and robot.filter:
             # Draw uncertainty ellipse based on filter's covariance
             self._draw_uncertainty_ellipse_history(robot)
-            # Draw the estimated pose from the filter
-            # self._draw_estimated_pose(robot.filter.pose)
             # Draw belief history if available
             self._draw_belief_history(robot.filter.belief_history)
 
@@ -190,7 +188,6 @@ class Picasso:
         if len(belief_history) < 2:
             return
 
-        # Convert each belief to a 2D point ignoring the orientation.
         points = [(int(pose[0]), int(pose[1])) for pose in belief_history]
 
         draw_segment = True
@@ -220,7 +217,7 @@ class Picasso:
             max_alpha_outline (int): Maximum alpha value (0-255) for the newest ellipse OUTLINE.
         """
         if not hasattr(robot.filter, 'uncertainty_history') or not robot.filter.uncertainty_history:
-            return  # Nothing to draw
+            return 
 
         history = robot.filter.uncertainty_history
         history_len = len(history)
@@ -238,18 +235,15 @@ class Picasso:
                 semi_minor = ellipse_data['semi_minor']
                 angle_deg = ellipse_data['angle_deg']
             except (KeyError, IndexError, TypeError) as e:
-                continue  # Skip malformed entry
+                continue  
 
-            # Calculate alpha based on age
             age_ratio = (i + 1) / drawable_len
             current_alpha_outline = int(max_alpha_outline * age_ratio)
             current_alpha_outline = max(0, min(255, current_alpha_outline))
 
-            # Skip if invisible
             if current_alpha_outline <= 1:
                 continue
 
-            # Prepare drawing parameters
             width = max(int(2 * semi_major), 1)
             height = max(int(2 * semi_minor), 1)
             surface_size = int(max(width, height) * 1.5) + 2
@@ -258,23 +252,17 @@ class Picasso:
             try:
                 ellipse_surface = pygame.Surface((surface_size, surface_size), pygame.SRCALPHA)
             except (pygame.error, ValueError) as e:
-                continue  # Skip if surface creation fails
+                continue 
 
             ellipse_rect = pygame.Rect(0, 0, width, height)
             ellipse_rect.center = (surface_size // 2, surface_size // 2)
 
-            # Set outline color with calculated alpha
             ellipse_outline_color = (*Config.ORANGE, current_alpha_outline)
 
-            # --- Draw, Rotate, Blit (Outline ONLY) ---
             try:
-                # <<<< REMOVED THE FILL DRAW CALL >>>>
-                # pygame.draw.ellipse(ellipse_surface, ellipse_color, ellipse_rect)
-
-                # Draw outline (width 1)
                 pygame.draw.ellipse(ellipse_surface, ellipse_outline_color, ellipse_rect, 1)
             except pygame.error as e:
-                continue  # Skip if drawing fails
+                continue  
 
             rotated_surface = pygame.transform.rotate(ellipse_surface, angle_deg)
             rotated_rect = rotated_surface.get_rect(center=(center_x, center_y))
