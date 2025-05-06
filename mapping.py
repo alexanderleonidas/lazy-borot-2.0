@@ -5,6 +5,14 @@ from scipy.linalg import norm
 
 
 class OccupancyGrid:
+    """
+    Represents an occupancy grid for mapping and localization in robotics.
+
+    Provides a grid-based representation of the environment using
+    log-odds to model the likelihood of cells being occupied or free,
+    based on sensor data and robot pose. Enables probabilistic updating and
+    conversion to different representations like probability or grayscale.
+    """
     def __init__(self, robot):
         self.robot = robot
         self.width = Config.GRID_WIDTH
@@ -26,10 +34,17 @@ class OccupancyGrid:
         self.cell_size_quarter = self.cell_size_pixels / 4.0
         self.cell_size_half = self.cell_size_pixels / 2.0
 
-    def update(self, robot_pose_pixels, sensor_readings_pixels):
+    def update(self, robot_pose_pixels, sensor_readings):
+        """
+        Updates the occupancy grid map by incorporating sensor readings into the grid. The method
+        uses the robot's current pose and sensor readings to update probabilities for both free
+        and occupied cells via a ray-tracing algorithm. Cells along the path traced by the sensor
+        beams are updated as free, and the endpoint of the beam is updated as occupied, provided
+        the measurement is within sensor range.
+        """
         robot_x, robot_y, robot_theta = robot_pose_pixels
 
-        for measured_dist, relative_beam_angle in sensor_readings_pixels:
+        for measured_dist, relative_beam_angle in sensor_readings:
             global_beam_angle = robot_theta + relative_beam_angle
             cos_angle = math.cos(global_beam_angle)
             sin_angle = math.sin(global_beam_angle)

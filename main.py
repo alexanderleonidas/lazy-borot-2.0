@@ -1,5 +1,6 @@
 import pygame
 import time
+from maps import Maps
 from picasso import Picasso
 from config import Config
 from robot import Robot, Action
@@ -53,9 +54,10 @@ def main(save_results=False, plot_results=False):
         # --- Rendering ---
         picasso.draw_map(robot, show_sensors=True)
         picasso.update_display(fps)
+        Maps.add_noise_to_maze(Config.maze_grid, dt*0.1)
     if save_results: save_run(run_id, robot, time_step+1, filter_instance=robot.filter, maze=Config.maze_grid)
     if plot_results: plot_robot_pose_data(run_id)
     picasso.quit()
 
 if __name__ == "__main__":
-    main()
+    main(False, False)

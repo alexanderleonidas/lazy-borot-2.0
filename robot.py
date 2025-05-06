@@ -20,7 +20,7 @@ class Robot:
         self.x = x
         self.y = y
         self.theta = theta  # in radians
-        self.radius = 7.  # for drawing the robot
+        self.radius = 4.  # for drawing the robot
 
         # Extra Variables
         self.last_collision_cell = None  # stores (i, j) of last obstacle collision
@@ -29,13 +29,13 @@ class Robot:
 
         # Wheel configuration
         self.max_speed = 80
-        self.dv = 10  # pixels per second
+        self.dv = 5  # pixels per second
         self.wheel_distance = self.radius*2  # distance between wheels in pixels
         self. right_velocity = 0
         self.left_velocity = 0
 
         # Sensor configuration: simulating 3 sensors (front, left, right)
-        self.sensor_range = 70.0  # max range in pixels
+        self.sensor_range = 128.0  # max range in pixels
         self.sensor_angles = [(2. * math.pi / 12) * i for i in range(12)]  # relative sensor directions
         self.visible_measurements = []  # list of visible landmarks
         self.sensor_readings = []  # list of sensor readings

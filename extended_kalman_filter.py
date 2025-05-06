@@ -3,7 +3,7 @@ from math import cos, sin, atan2, sqrt, acos, radians, pi
 import pygame 
 
 class ExtendedKalmanFilter: 
-    def __init__(self, robot, initial_covariance=0.01, process_noise_std=(1, 1, radians(1)), measurement_noise_std=(1, radians(5))):
+    def __init__(self, robot, initial_covariance=0.1, process_noise_std=(1, 1, radians(1)), measurement_noise_std=(1, radians(1))):
         """
         Initializes the Extended Kalman Filter.
 

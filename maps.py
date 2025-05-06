@@ -117,6 +117,47 @@ class Maps:
         return maze
 
     @staticmethod
+    def add_noise_to_maze(maze, swap_probability):
+        """
+        Adds random noise to a maze by swapping walls (1) with paths (0) based on a probability.
+
+        Args:
+            maze: 2D numpy array representing the maze (0=path, 1=wall)
+            swap_probability: Float between 0 and 1, the probability of swapping a cell's value
+
+        Returns:
+            Modified maze as a 2D numpy array
+        """
+
+        # Get maze dimensions
+        height, width = maze.shape
+
+        # Calculate how many swaps to perform based on probability
+        total_cells = height * width
+        expected_swaps = int(total_cells * swap_probability)
+
+        # Perform the expected number of swaps
+        for _ in range(expected_swaps):
+            # Choose random interior coordinates (not on the border)
+            y = random.randint(1, height - 2)
+            x = random.randint(1, width - 2)
+
+            # Only proceed if this is a wall
+            if maze[y, x] == 1:
+                # Find neighboring path cells
+                neighbors = []
+                for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    ny, nx = y + dy, x + dx
+                    if 0 <= ny < height and 0 <= nx < width and maze[ny, nx] == 0:
+                        neighbors.append((ny, nx))
+
+                # If there are path neighbors, swap with one
+                if neighbors:
+                    ny, nx = random.choice(neighbors)
+                    maze[y, x] = 0  # Wall becomes path
+                    maze[ny, nx] = 1  # Path becomes wall
+
+    @staticmethod
     def find_random_landmarks(grid, cell_size, num_landmarks=50, min_distance=None):
         """
         Randomly place landmarks within the empty spaces (cells with value 0) of the grid
