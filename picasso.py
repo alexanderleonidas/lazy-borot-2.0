@@ -109,7 +109,7 @@ class Picasso:
         tile_size = Config.CELL_SIZE
         for landmark in Config.landmarks:
             cx, cy = landmark
-            pygame.draw.circle(self.screen, Config.ORANGE, (cx, cy), tile_size // 10)
+            pygame.draw.circle(self.screen, Config.ORANGE, (cx, cy), tile_size //3.5)
 
     def _draw_collision_marker(self, cell_pos: tuple[int, int], robot_x: float, robot_y: float):
         """
