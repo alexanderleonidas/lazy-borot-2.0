@@ -1,7 +1,6 @@
 import numpy as np
 from math import cos, sin, atan2, sqrt, acos, pi
 from itertools import combinations
-
 import pygame
 
 

@@ -1,9 +1,8 @@
 import numpy as np
 from math import cos, sin, atan2, sqrt, acos, radians, pi
+import pygame 
 
-import pygame # Keep for timestamping if needed
-
-class ExtendedKalmanFilter: # Renamed for clarity
+class ExtendedKalmanFilter: 
     def __init__(self, robot, initial_covariance=0.01, process_noise_std=(1, 1, radians(1)), measurement_noise_std=(1, radians(5))):
         """
         Initializes the Extended Kalman Filter.
@@ -34,7 +33,7 @@ class ExtendedKalmanFilter: # Renamed for clarity
 
         self.belief_history = []
         self.uncertainty_history = []
-        self.max_history_length = 200 # Keep history length manageable
+        self.max_history_length = 200 
 
     def _normalize_angle(self, angle):
         """Normalize angle to be within [-pi, pi)."""
@@ -62,23 +61,22 @@ class ExtendedKalmanFilter: # Renamed for clarity
         predicted_pose = self.pose + np.array([delta_x, delta_y, delta_theta])
         predicted_pose[2] = self._normalize_angle(predicted_pose[2]) # Normalize angle
 
-        # 2. Calculate Jacobian of motion model G = ∂g/∂x
+        # 2. Calculate Jacobian of motion model 
         G = np.array([
             [1.0, 0.0, -v * dt * sin(theta)],
             [0.0, 1.0,  v * dt * cos(theta)],
             [0.0, 0.0, 1.0]
         ])
 
-        # 3. Predict covariance P_k|k-1 = G * P_k-1|k-1 * G^T + R
+        # 3. Predict covariance 
         predicted_covariance = G @ self.covariance @ G.T + self.R
 
-        # Update internal state *after* using the current state for the Jacobin etc.
+        # Update internal state after using the current state for the Jacobin etc.
         self.pose = predicted_pose
         self.covariance = predicted_covariance
 
-        # --- EKF Correction Step (Iterate through visible landmarks) ---
+        # --- EKF Correction Step ---
 
-        # Make a copy to avoid issues if the list changes during iteration
         visible_measurements = list(self.robot.visible_measurements)
 
         if not visible_measurements:
@@ -87,15 +85,14 @@ class ExtendedKalmanFilter: # Renamed for clarity
         else:
             # print(f"\rProcessing {len(visible_measurements)} landmarks...", end='', flush=True)
             for z_measured, landmark_pos in visible_measurements:
-                d_measured, b_measured = z_measured # Actual measurement [distance, bearing]
                 lx, ly = landmark_pos              # Landmark absolute position
 
-                # Use the *predicted* state for calculating expected measurement and Jacobian H
+                # Use the predicted state for calculating expected measurement and Jacobian H
                 current_x = self.pose[0]
                 current_y = self.pose[1]
                 current_theta = self.pose[2]
 
-                # 1. Calculate expected measurement h(x_k|k-1)
+                # 1. Calculate expected measurement
                 delta_lx = lx - current_x
                 delta_ly = ly - current_y
                 q = delta_lx**2 + delta_ly**2 # Squared distance
@@ -119,36 +116,28 @@ class ExtendedKalmanFilter: # Renamed for clarity
                 ])
 
                 # 3. Calculate Kalman Gain K
-                H_cov = H @ self.covariance # Precompute H * P
-                S = H_cov @ H.T + self.Q  # Innovation covariance S = H*P*H^T + Q
+                H_cov = H @ self.covariance 
+                S = H_cov @ H.T + self.Q  # Innovation covariance 
                 try:
                     S_inv = np.linalg.inv(S)
                 except np.linalg.LinAlgError:
-                    # print(f"\rWarning: S matrix singular for landmark {landmark_pos}. Skipping update.", end='', flush=True)
                     continue # Skip if matrix is singular
 
                 K = self.covariance @ H.T @ S_inv # Kalman Gain K = P * H^T * S^-1
 
-                # 4. Calculate measurement residual (innovation) y = z_measured - z_expected
+                # 4. Calculate innovation
                 y = z_measured - z_expected
                 y[1] = self._normalize_angle(y[1]) # Normalize bearing difference
 
-                # 5. Update state estimate x_k|k = x_k|k-1 + K * y
+                # 5. Update state estimate 
                 correction = K @ y
                 self.pose = self.pose + correction
                 self.pose[2] = self._normalize_angle(self.pose[2]) # Normalize angle
 
-                # 6. Update covariance estimate P_k|k = (I - K * H) * P_k|k-1
-                # Using the Joseph form for better numerical stability:
-                # P = (I - KH)P(I - KH)^T + KRK^T
                 I_KH = self.I - K @ H
                 self.covariance = I_KH @ self.covariance @ I_KH.T + K @ self.Q @ K.T
-                # Simpler form (potentially less stable):
-                # self.covariance = (self.I - K @ H) @ self.covariance
 
                 break # Break after one landmark is found
-
-        # print(f"\rEKF update complete. Processed {num_landmarks_processed} landmarks. Pose: [{self.pose[0]:.2f}, {self.pose[1]:.2f}, {degrees(self.pose[2]):.1f}]", end='', flush=True)
 
 
         # --- Store History ---
@@ -159,12 +148,6 @@ class ExtendedKalmanFilter: # Renamed for clarity
             self.belief_history.pop(0)
         if len(self.uncertainty_history) > 20: # Also limit uncertainty history
              self.uncertainty_history.pop(0)
-
-
-    # --- Triangulation function is no longer needed for EKF correction ---
-    # def triangulate_pose_from_landmarks(self):
-    #     ... REMOVED ...
-
 
     def calculate_uncertainty_ellipse(self, confidence_sigma=2.0):
         """
@@ -196,19 +179,15 @@ class ExtendedKalmanFilter: # Renamed for clarity
                 'semi_major': semi_major,
                 'semi_minor': semi_minor,
                 'angle_rad': angle_rad,
-                'timestamp': pygame.time.get_ticks() # Use pygame time if available
+                'timestamp': pygame.time.get_ticks()
             })
-            # Apply history limit inside the main loop now
 
             return semi_major, semi_minor, angle_rad
         except np.linalg.LinAlgError: return None
-        except Exception as e: return None # Catch other errors
+        except Exception as e: return None 
 
-
-    # Helper to get the current estimated pose
     def get_estimated_pose(self):
         return self.pose.copy()
 
-    # Helper to get current covariance
     def get_covariance(self):
         return self.covariance.copy()

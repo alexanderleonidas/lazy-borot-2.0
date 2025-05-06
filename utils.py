@@ -137,7 +137,7 @@ def plot_robot_pose_data(run_id, filename="robot_pose_data.csv", ellipse_step=10
     plt.title("Robot Pose and Uncertainty Ellipses")
     plt.legend()
     plt.grid(True)
-    plt.axis('equal')  # Ensure equal scaling for x and y axes
+    plt.axis('equal')  
     plt.show()
     fig.savefig(f"results/{run_id}_robot_pose_data.png")
 
