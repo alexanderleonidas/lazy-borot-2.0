@@ -142,3 +142,35 @@ def plot_robot_pose_data(run_id, filename="robot_pose_data.csv", ellipse_step=10
     fig.savefig(f"results/{run_id}_robot_pose_data.png")
 
 
+def save_generation_fitness(run_id, generation_num, avg_fitness, best_fitness, filename="training_fitness_log.csv"):
+    """
+    Saves the average and best fitness for a given generation to a CSV file.
+
+    Args:
+        run_id (str): The ID of the overall training run.
+        generation_num (int): The current generation number.
+        avg_fitness (float): The average fitness of the population in this generation.
+        best_fitness (float): The best fitness achieved in this generation.
+        filename (str): The name of the CSV file to save fitness data.
+    """
+    results_dir = "results"
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
+
+    filepath = os.path.join(results_dir, f"{run_id}_{filename}")
+    file_exists = os.path.isfile(filepath)
+
+    data_row = {
+        "generation": generation_num,
+        "average_fitness": avg_fitness,
+        "best_fitness": best_fitness
+    }
+
+    with open(filepath, 'a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=data_row.keys())
+        if not file_exists or os.path.getsize(filepath) == 0:  # Check if the file is new or empty
+            writer.writeheader()
+        writer.writerow(data_row)
+
+
+

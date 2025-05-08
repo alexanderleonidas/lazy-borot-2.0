@@ -6,6 +6,7 @@ from kalman_filter import KalmanFilter
 from extended_kalman_filter import ExtendedKalmanFilter
 from mapping import OccupancyGrid
 
+
 class Action(Enum):
     INCREASE_RIGHT = 0,
     DECREASE_RIGHT = 1,
@@ -14,8 +15,9 @@ class Action(Enum):
     BREAK = 4,
     NOTHING = 5
 
+
 class Robot:
-    def __init__(self, x, y, theta, filter_type=None, mapping=False):
+    def __init__(self, x, y, theta, filter_type=None, mapping=False, ann=False):
         # True robot state (ground truth)
         self.x = x
         self.y = y
@@ -25,11 +27,12 @@ class Robot:
         # Extra Variables
         self.last_collision_cell = None  # stores (i, j) of last obstacle collision
         self.path_history = []
-        self.max_history_length = 200
+        self.num_collisions = 0
+        # self.max_history_length = 200
 
         # Wheel configuration
         self.max_speed = 80
-        self.dv = 5  # pixels per second
+        self.dv = 4  # pixels per second
         self.wheel_distance = self.radius*2  # distance between wheels in pixels
         self. right_velocity = 0
         self.left_velocity = 0
@@ -39,6 +42,7 @@ class Robot:
         self.sensor_angles = [(2. * math.pi / 12) * i for i in range(12)]  # relative sensor directions
         self.visible_measurements = []  # list of visible landmarks
         self.sensor_readings = []  # list of sensor readings
+        self.get_sensor_readings(Config.maze_grid)
 
         # --- SLAM / Localization Components ---
         if filter_type == 'KF':
@@ -48,6 +52,9 @@ class Robot:
 
         if mapping:
             self.mapping = OccupancyGrid(self)
+
+        if ann:
+            self.ann = ann
 
     def update_motion(self, dt, maze):
         """
@@ -91,6 +98,8 @@ class Robot:
             if not self.circle_collides(self.x, new_y, maze):
                 self.y = new_y
 
+            self.num_collisions += 1
+
         # Finally, update the orientation.
         self.theta = new_theta
         # print(f'\rRobot Pose: x: {self.x:.2f} | y: {self.y:.2f} | θ: {self.theta:.2f}', end='', flush=True)
@@ -98,8 +107,8 @@ class Robot:
 
         # Add current position to path history
         self.path_history.append((self.x, self.y))
-        if len(self.path_history) > self.max_history_length:
-            self.path_history.pop(0)
+        # if len(self.path_history) > self.max_history_length:
+        #     self.path_history.pop(0)
 
         self.get_sensor_readings(maze)
 
@@ -225,7 +234,7 @@ class Robot:
         This populates self.sensor_readings.
         """
         simulated_readings = []
-        # Sensor noise for simulation (different from likelihood model's sigma_hit)
+        # Sensor noise for simulation (different from the likelihood model's sigma_hit)
         simulation_noise_std = 1.0  # Example: 1 pixel std dev for simulated readings
 
         for rel_angle_rad in self.sensor_angles:
@@ -239,10 +248,21 @@ class Robot:
             simulated_readings.append((noisy_distance, rel_angle_rad))
         self.sensor_readings = simulated_readings
 
-    def set_velocity(self, action: Action):
+    def set_velocity(self, action):
         """
         Set the robot's right and left-wheel velocities.
+
+        :param action: Action to take
+        :type action: Action
         """
+        if self.ann and isinstance(action, int):
+            # Assuming the ANN output (action) is an integer representing the index of the Action enum
+            # We need to map this integer back to the corresponding Action enum member
+            try:
+                action = list(Action)[action]
+            except ValueError:
+                raise ValueError(f"Invalid action index received from ANN: {action}. Must be a valid Action enum index.")
+
         if action == Action.INCREASE_RIGHT:
             self.right_velocity = min(self.right_velocity + self.dv, self.max_speed)
         elif action == Action.DECREASE_RIGHT:
@@ -256,8 +276,24 @@ class Robot:
             self.right_velocity = 0
         elif action == Action.NOTHING:
             pass
+        else:
+            raise ValueError("Invalid action. Use Action enum or ANN for velocity control.")
 
-    def get_linear_velocity(self):
+
+    def get_ann_inputs(self):
+        """
+        Get the inputs for the ANN.
+        This includes sensor readings, robot pose, and a bias term.
+        """
+        # TODO: think about using the localisation and mapping information as inputs for the ANN
+        # Normalize sensor readings to [0, 1]
+        normalized_readings = [(reading[0] / self.sensor_range) for reading in self.sensor_readings]
+        # Normalize Robot pose
+        pose = [self.x / Config.WINDOW_WIDTH, self.y / Config.WINDOW_HEIGHT, self.theta / (2 * math.pi)]
+        # Combine with bias
+        return normalized_readings + pose + [1.0]
+
+    def get_speed(self):
         return (self.right_velocity + self.left_velocity) / 2
 
     def get_angular_velocity(self):
@@ -265,3 +301,13 @@ class Robot:
 
     def get_pose(self):
         return np.array([self.x, self.y, self.theta])
+
+    def get_distance_traveled(self):
+        if len(self.path_history) < 2:
+            return 0
+        distance = 0
+        for i in range(1, len(self.path_history)):
+            x1, y1 = self.path_history[i - 1]
+            x2, y2 = self.path_history[i]
+            distance += math.hypot(x2 - x1, y2 - y1)
+        return distance

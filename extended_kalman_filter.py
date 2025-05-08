@@ -49,7 +49,7 @@ class ExtendedKalmanFilter:
         """
         # --- EKF Prediction Step ---
 
-        v = self.robot.get_linear_velocity()
+        v = self.robot.get_speed()
         omega = self.robot.get_angular_velocity()
         theta = self.pose[2]
 
@@ -144,10 +144,10 @@ class ExtendedKalmanFilter:
         self.belief_history.append(self.pose.copy()) # Store a copy
         self.calculate_uncertainty_ellipse() # Update uncertainty visualization data
         # Limit history size
-        if len(self.belief_history) > self.max_history_length:
-            self.belief_history.pop(0)
-        if len(self.uncertainty_history) > 20: # Also limit uncertainty history
-             self.uncertainty_history.pop(0)
+        # if len(self.belief_history) > self.max_history_length:
+        #     self.belief_history.pop(0)
+        # if len(self.uncertainty_history) > 20: # Also limit uncertainty history
+        #      self.uncertainty_history.pop(0)
 
     def calculate_uncertainty_ellipse(self, confidence_sigma=2.0):
         """

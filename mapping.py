@@ -1,8 +1,6 @@
 import numpy as np
 import math
 from config import Config
-from scipy.linalg import norm
-
 
 class OccupancyGrid:
     """

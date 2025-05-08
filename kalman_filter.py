@@ -27,7 +27,7 @@ class KalmanFilter:
         """
 
         # Prediction step
-        u = np.array([self.robot.get_linear_velocity(), 
+        u = np.array([self.robot.get_speed(),
                       self.robot.get_angular_velocity()])
         
         theta = self.pose[2]
@@ -65,8 +65,10 @@ class KalmanFilter:
 
             self.belief_history.append(self.pose)
             self.calculate_uncertainty_ellipse()
-            if len(self.belief_history) > self.max_history_length:
-                self.belief_history.pop(0)
+            # if len(self.belief_history) > self.max_history_length:
+            #     self.belief_history.pop(0)
+            # if len(self.uncertainty_history) > 20:
+            #     self.uncertainty_history.pop(0)
 
     def triangulate_pose_from_landmarks(self):
         """
@@ -218,9 +220,6 @@ class KalmanFilter:
                 'angle_rad': angle_rad,
                 'timestamp': pygame.time.get_ticks()
             })
-
-            if len(self.uncertainty_history) > 20:
-                self.uncertainty_history.pop(0)
 
             return semi_major, semi_minor, angle_rad
 

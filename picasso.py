@@ -70,10 +70,13 @@ class Picasso:
         if len(path_history) < 2:
             return
 
-            # Create a transparent surface for alpha blending
+        # Limit to the last 200 points
+        limited_history = path_history[-200:] if len(path_history) > 200 else path_history
+
+        # Create a transparent surface for alpha blending
         trail_surface = pygame.Surface((Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT), pygame.SRCALPHA)
 
-        trail_points = [(int(x), int(y)) for x, y in path_history]
+        trail_points = [(int(x), int(y)) for x, y in limited_history]
         history_len = len(trail_points)
 
         for i in range(history_len - 1):
@@ -160,7 +163,6 @@ class Picasso:
     @staticmethod
     def quit():
         pygame.quit()
-        sys.exit()
 
     def _draw_visible_landmarks(self, robot):
         """
@@ -188,7 +190,10 @@ class Picasso:
         if len(belief_history) < 2:
             return
 
-        points = [(int(pose[0]), int(pose[1])) for pose in belief_history]
+        # Limit to the last 200 points
+        limited_history = belief_history[-200:] if len(belief_history) > 200 else belief_history
+
+        points = [(int(pose[0]), int(pose[1])) for pose in limited_history]
 
         draw_segment = True
         segment_count = 0

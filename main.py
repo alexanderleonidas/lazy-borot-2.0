@@ -5,7 +5,7 @@ from picasso import Picasso
 from config import Config
 from robot import Robot, Action
 from utils import save_run, plot_robot_pose_data
-
+from controller import Evolution, RobotBrain, device
 
 def main(save_results=False, plot_results=False):
     run_id = str(int(time.time()))
@@ -13,7 +13,7 @@ def main(save_results=False, plot_results=False):
     pygame.init()
     screen = pygame.display.set_mode((Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT))
     picasso = Picasso(screen)
-    pygame.display.set_caption("Robot Simulator (step 1)")
+    pygame.display.set_caption("Robot Simulator")
     # Create a robot instance at the starting position.
     robot = Robot(Config.start_pos[0], Config.start_pos[1], 0, filter_type='EKF', mapping=True)
 
@@ -54,7 +54,7 @@ def main(save_results=False, plot_results=False):
         # --- Rendering ---
         picasso.draw_map(robot, show_sensors=True)
         picasso.update_display(fps)
-        Maps.add_noise_to_maze(Config.maze_grid, dt*0.1)
+        Maps.add_noise_to_maze(Config.maze_grid, dt*0.1) # Make obstacles move in the maze with this line
     if save_results: save_run(run_id, robot, time_step+1, filter_instance=robot.filter, maze=Config.maze_grid)
     if plot_results: plot_robot_pose_data(run_id)
     picasso.quit()
