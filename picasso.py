@@ -18,9 +18,10 @@ class Picasso:
 
     def draw_map(self, robot, show_sensors=False, show_dust=False):
         self._draw_bitmap()
-        if show_dust: self._draw_dust(robot)
         if hasattr(robot, 'mapping') and robot.mapping:
             self._draw_occupancy_grid(robot.mapping)
+        if show_dust: self._draw_dust(robot)
+
         # Draw ground truth robot position last (or optionally disable)
         if show_sensors: self._draw_sensor_readings(robot)
         self._draw_visible_landmarks(robot)

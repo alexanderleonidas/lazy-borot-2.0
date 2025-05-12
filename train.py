@@ -5,17 +5,18 @@ from picasso import Picasso
 from robot import Robot
 from controller import Evolution
 from utils import save_generation_fitness, save_model
+import os
 
 def train(save_results=False, plot_results=False, show_screen=False):
     run_id = str(int(time.time()))
     fps = 30
 
-    population_size = 15
+    population_size = 50
     selection_percentage = 0.5
     error_range = 0.1
     mutate_percentage = 0.2
     time_steps = 500
-    generations = 400
+    generations = 500
 
     evolution = Evolution(population_size, selection_percentage, error_range, mutate_percentage)
 
@@ -45,14 +46,14 @@ def train(save_results=False, plot_results=False, show_screen=False):
                 ann_inputs = robot.get_ann_inputs()
                 action = individual.brain.predict(ann_inputs)
                 robot.set_velocity(action)
-                evolution.compute_individual_fitness(individual, robot)
+                #evolution.compute_individual_fitness_2(individual, robot)
                 if show_screen:
-                    picasso.draw_map(robot, show_sensors=True)
+                    picasso.draw_map(robot, show_sensors=True, show_dust=True)
                     picasso.update_display(fps)
                 # if (step+1) % 100 == 0:
                 #     print(f"Individual {i} - Step {step+1}/{time_steps}, Fitness: {individual.fitness:.4f}")
             if show_screen: picasso.quit()
-
+            evolution.compute_individual_fitness_2(individual, robot)
 
         current_avg_fitness = sum([ind.fitness for ind in evolution.population]) / len(evolution.population)
         current_best_fitness = max([ind.fitness for ind in evolution.population])
@@ -66,6 +67,12 @@ def train(save_results=False, plot_results=False, show_screen=False):
         if save_results: save_generation_fitness(run_id, generation + 1, current_avg_fitness, current_best_fitness)
 
         print(f"Generation {generation + 1} completed. Avg Fitness: {current_avg_fitness:.4f}, Best Fitness: {current_best_fitness:.4f}")
+        if (generation + 1) % 30 == 0:
+            os.makedirs("./checkpoints", exist_ok=True)
+            best = max(evolution.population, key=lambda ind: ind.fitness)
+            fname = f"./checkpoints/{run_id}_gen{generation+1}.pth"
+            save_model(run_id, best.brain, filename=fname)
+            print(f"→ Saved checkpoint: {fname}")
 
     print("Training finished.")
     print(f"Average fitness over generations: {sum(avg_fitness_over_generations) / len(avg_fitness_over_generations)}")
