@@ -30,7 +30,7 @@ class Maps:
     FLOOR = 0  # Represents an empty floor/corridor cell
 
     @staticmethod
-    def create_house(grid_width, grid_height, num_rooms, min_room_size=4, max_room_size=10, max_placement_attempts=500, corridor_width=1):
+    def create_house(grid_width, grid_height, num_rooms, min_room_size=4, max_room_size=10, max_placement_attempts=1000, corridor_width=1):
         """
         Generates a 2D list representing a map with rooms and corridors.
 

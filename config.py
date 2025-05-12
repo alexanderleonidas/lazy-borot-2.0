@@ -32,7 +32,7 @@ class Config:
     # NOTE: Maps.generate_maze needs height first, then width
     # maze_grid = Maps.generate_maze(GRID_HEIGHT, GRID_WIDTH, complexity=0.02)
     # maze_grid = Maps.generate_house_layout(GRID_HEIGHT, GRID_WIDTH)
-    maze_grid = Maps.create_house(GRID_WIDTH, GRID_HEIGHT, 6, min_room_size=7, max_room_size=20, corridor_width=2)
+    maze_grid = Maps.create_house(GRID_WIDTH, GRID_HEIGHT, 6, min_room_size=10, max_room_size=25, corridor_width=2)
 
     # --- Landmarks and Start Position ---
     # These functions now use the dynamically calculated CELL_SIZE
