@@ -34,6 +34,9 @@ class Individual:
     def add_fitness(self, fitness: (float, int)):
         self.fitness += fitness
 
+    def reset_fitness(self):
+        self.fitness = 0.0
+
 class Evolution:
     def __init__(self, pop_size: int, select_perc: float, error_range: float, mutate_perc: float):
         self.population = [Individual(RobotBrain().to(device)) for _ in range(pop_size)]
@@ -144,3 +147,5 @@ class Evolution:
         # Preserve the best individuals
         children[:num_elites] = selected_parents[:num_elites]
         self.population = children
+        for individual in self.population:
+            individual.reset_fitness()
