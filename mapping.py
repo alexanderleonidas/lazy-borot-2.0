@@ -85,3 +85,32 @@ class OccupancyGrid:
 
     def get_grayscale_grid(self):
         return ((1 - self.get_probability_grid()) * 255).astype(np.uint8)
+
+    def get_confidence_stats(self, confidence_threshold=0.2):
+        """
+        Evaluates how much of the grid has confident occupancy values.
+
+        :param: confidence_threshold: Threshold value (0-1) to consider a cell's occupancy probability as confident. Default is 0.2.
+        :type: confidence_threshold: float
+        
+        Returns:
+            dict: Statistics about grid confidence:
+                  - total_cells: Total number of cells in grid
+                  - confident_occupied: Number of cells confidently occupied (p >= 1-threshold)
+                  - confident_free: Number of cells confidently free (p <= threshold)
+                  - uncertain: Number of cells with uncertain occupancy
+                  - confidence_ratio: Ratio of confident cells to total cells
+        """
+        prob_grid = self.get_probability_grid()
+        total_cells = self.width * self.height
+        confident_occupied = np.sum(prob_grid >= (1 - confidence_threshold))
+        confident_free = np.sum(prob_grid <= confidence_threshold)
+        uncertain_cells = total_cells - confident_occupied - confident_free
+
+        return {
+            'total_cells': total_cells,
+            'confident_occupied': int(confident_occupied),
+            'confident_free': int(confident_free),
+            'uncertain': int(uncertain_cells),
+            'confidence_ratio': (confident_occupied + confident_free) / total_cells
+        }

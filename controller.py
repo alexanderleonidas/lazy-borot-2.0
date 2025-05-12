@@ -29,15 +29,10 @@ class RobotBrain(nn.Module):
 class Individual:
     def __init__(self, brain: RobotBrain):
         self.brain = brain
-        self.fitness = []
+        self.fitness = 0.0
 
     def add_fitness(self, fitness: (float, int)):
-        self.fitness.append(fitness)
-
-    def average_fitness(self):
-        if len(self.fitness) == 0:
-            return 0
-        return sum(self.fitness) / len(self.fitness)
+        self.fitness += fitness
 
 class Evolution:
     def __init__(self, pop_size: int, select_perc: float, error_range: float, mutate_perc: float):
@@ -45,26 +40,60 @@ class Evolution:
         self.select_percentage = select_perc
         self.error_range = error_range
         self.mutate_percentage = mutate_perc
+        self.create_diverse_population()
+
+    def create_diverse_population(self):
+        """Create a diverse initial population using multiple initialization strategies."""
+        for i, individual in enumerate(self.population):
+            # Apply different initialization strategies based on index
+            if i % 3 == 0:
+                # Strategy 1: Xavier/Glorot initialization
+                for name, param in individual.brain.named_parameters():
+                    if 'weight' in name:
+                        nn.init.xavier_uniform_(param.data)
+                    elif 'bias' in name:
+                        nn.init.zeros_(param.data)
+            elif i % 3 == 1:
+                # Strategy 2: Kaiming/He initialization
+                for name, param in individual.brain.named_parameters():
+                    if 'weight' in name:
+                        nn.init.kaiming_normal_(param.data, nonlinearity='relu')
+                    elif 'bias' in name:
+                        nn.init.zeros_(param.data)
+            else:
+                # Strategy 3: Random noise injection with larger variance
+                for param in individual.brain.parameters():
+                    noise = torch.randn_like(param) * (self.error_range * 2.0)
+                    param.data += noise
 
     def compute_individual_fitness(self, individual, robot):
-        ann_inputs = robot.get_ann_inputs()
-        action = individual.brain.predict(ann_inputs)
-        robot.set_velocity(action)
-        # TODO: Implement the actual fitness calculation based on robot's performance
-        v_l, v_r = robot.left_velocity, robot.right_velocity
-        penalty = -0.5*len(robot.path_history) - robot.num_collisions if v_l == 0 and v_r == 0 else 0
-        fitness = robot.get_distance_traveled() + len(robot.visible_measurements) + penalty
-        individual.add_fitness(fitness)
+        grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else None
+        filter_covariance = robot.filter.uncertainty_history[-1]['semi_major'] + robot.filter.uncertainty_history[-1][
+            'semi_minor'] if hasattr(robot, 'filter') else None
 
-    def select_parents(self, type='max'):
+        x = torch.tensor([
+            robot.get_distance_traveled(),
+            len(robot.visible_measurements),
+            sum([r for r, _ in robot.sensor_readings]) - len(robot.sensor_readings) * robot.sensor_range,
+            grid_stats['confident_free'] if grid_stats else 0,
+            -filter_covariance if filter_covariance else 0,
+            -robot.num_collisions
+        ], device=device)
+
+        a = torch.tensor([0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001], device=device)
+
+        fitness_value = torch.dot(x, a).item()
+        individual.add_fitness(fitness_value)
+
+    def select_parents(self, method='max'):
         num_parents = int(len(self.population) * self.select_percentage)
-        if type == 'max':
-            sorted_population = sorted(self.population, key=lambda ind: ind.average_fitness(), reverse=True)
+        if method == 'max':
+            sorted_population = sorted(self.population, key=lambda ind: ind.fitness, reverse=True)
             return sorted_population[:num_parents]
         else:
             raise ValueError("Invalid selection type. Use 'max' or 'random'.")
 
-    def reproduce(self, parents, type='average'):
+    def reproduce(self, parents, method='crossover'):
         num_children = len(self.population)
         children = []
 
@@ -84,20 +113,19 @@ class Evolution:
             p2_dict = parents[p2_idx].brain.state_dict()
 
             child_dict = {}
-            if type == 'average':
+            if method == 'average':
                 # Create child state dict by averaging parameters
                 for name in p1_dict:
                     child_dict[name] = (p1_dict[name] + p2_dict[name]) / 2.0
-            elif type == 'crossover':
+                child.brain.load_state_dict(child_dict)
+            elif method == 'crossover':
                 for name, param in p1_dict.items():
                     # Use binary mask for parameter selection (faster than multiple random calls)
                     mask = (torch.rand_like(param, dtype=torch.float) < 0.5)
                     child_dict[name] = torch.where(mask, param, p2_dict[name])
+                child.brain.load_state_dict(child_dict)
             else:
                 raise ValueError("Invalid reproduction type. Use 'average' or 'crossover'.")
-
-            # Load the parameters into the child
-            child.brain.load_state_dict(child_dict)
             children.append(child)
 
         return children
@@ -109,9 +137,9 @@ class Evolution:
                     noise = torch.randn_like(param) * self.error_range
                     param.data += noise
 
-    def create_next_generation(self, reproduction_type='crossover', num_elites=2):
-        selected_parents = self.select_parents()
-        children = self.reproduce(selected_parents, type=reproduction_type)
+    def create_next_generation(self, reproduction_type='crossover', selection_type='max', num_elites=2):
+        selected_parents = self.select_parents(method=selection_type)
+        children = self.reproduce(selected_parents, method=reproduction_type)
         self.mutate(children)
         # Preserve the best individuals
         children[:num_elites] = selected_parents[:num_elites]

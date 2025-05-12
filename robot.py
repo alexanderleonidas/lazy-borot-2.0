@@ -22,7 +22,7 @@ class Robot:
         self.x = x
         self.y = y
         self.theta = theta  # in radians
-        self.radius = 4.  # for drawing the robot
+        self.radius = 5.  # for drawing the robot
 
         # Extra Variables
         self.last_collision_cell = None  # stores (i, j) of last obstacle collision
@@ -31,8 +31,8 @@ class Robot:
         # self.max_history_length = 200
 
         # Wheel configuration
-        self.max_speed = 80
-        self.dv = 4  # pixels per second
+        self.max_speed = 100
+        self.dv = 10  # pixels per second
         self.wheel_distance = self.radius*2  # distance between wheels in pixels
         self. right_velocity = 0
         self.left_velocity = 0

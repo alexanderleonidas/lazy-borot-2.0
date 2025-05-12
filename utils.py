@@ -5,6 +5,7 @@ import os
 import csv
 import json
 from config import Config
+import torch
 
 
 def save_run(run_id, robot, time_step=None, maze=None, filter_instance=None, filename="robot_pose_data.csv"):
@@ -172,5 +173,49 @@ def save_generation_fitness(run_id, generation_num, avg_fitness, best_fitness, f
             writer.writeheader()
         writer.writerow(data_row)
 
+def save_model(run_id, model, filename="robot_brain.pt"):
+    """
+    Saves the model state dictionary to a file. If the file already exists,
+    it appends a timestamp to create a unique filename.
+
+    :param run_id: The ID of the overall training run.
+    :type run_id: str
+    :param model: The model to save.
+    :type model: torch.nn.Module
+    :param filename: The base filename to save the model as.
+    :type filename: str
+    """
+    filename = f"results/{run_id}_{filename}"
+    torch.save(model.state_dict(), filename)
 
 
+def load_model(run_id=None, model=None, filename="robot_brain.pt", filepath=None):
+    """
+    Loads a saved model state dictionary into a PyTorch model.
+
+    :param run_id: The ID of the training run to load.
+    :type run_id: str, optional
+    :param model: The model instance to load weights into.
+    :type model: torch.nn.Module
+    :param filename: The base filename of the saved model.
+    :type filename: str, optional
+    :param filepath: Direct filepath to the model, overriding run_id and filename.
+    :type filepath: str, optional
+    :returns torch.nn.Module: The model with loaded weights.
+    """
+    if filepath is None:
+        if run_id is None:
+            raise ValueError("Either run_id or filepath must be provided")
+        filepath = f"results/{run_id}_{filename}"
+
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"Model file not found at: {filepath}")
+
+    if model is None:
+        raise ValueError("A model instance must be provided to load weights into")
+
+    # Load state dictionary
+    state_dict = torch.load(filepath)
+    model.load_state_dict(state_dict)
+
+    print(f"Model successfully loaded from {filepath}")
