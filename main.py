@@ -15,7 +15,7 @@ def main(save_results=False, plot_results=False):
     picasso = Picasso(screen)
     pygame.display.set_caption("Robot Simulator")
     # Create a robot instance at the starting position.
-    robot = Robot(Config.start_pos[0], Config.start_pos[1], 0, filter_type='EKF', mapping=True, ann=True)
+    robot = Robot(Config.start_pos[0], Config.start_pos[1], 0, filter_type='EKF', mapping=False, ann=False)
     if hasattr(robot, 'ann'):
         brain = RobotBrain().to(device)
         load_model(run_id='1746749158', model=brain)
@@ -60,9 +60,9 @@ def main(save_results=False, plot_results=False):
         if save_results:
             save_run(run_id, robot, time_step, filter_instance=robot.filter)
         # --- Rendering ---
-        picasso.draw_map(robot, show_sensors=True)
+        picasso.draw_map(robot, show_sensors=True, show_dust=True)
         picasso.update_display(fps)
-        Maps.add_noise_to_maze(Config.maze_grid, dt*0.1) # Make obstacles move in the maze with this line
+        # Maps.add_noise_to_maze(Config.maze_grid, dt*0.1) # Make obstacles move in the maze with this line
     if save_results: save_run(run_id, robot, time_step+1, filter_instance=robot.filter, maze=Config.maze_grid)
     if plot_results: plot_robot_pose_data(run_id)
     picasso.quit()

@@ -1,7 +1,174 @@
 import numpy as np
 import random
 
+
+class Room:
+    """ Represents a rectangular room on the grid. """
+
+    def __init__(self, x, y, w, h):
+        self.x1 = x  # Top-left x-coordinate
+        self.y1 = y  # Top-left y-coordinate
+        self.w = w  # Width
+        self.h = h  # Height
+        self.x2 = x + w  # Bottom-right x-coordinate (exclusive)
+        self.y2 = y + h  # Bottom-right y-coordinate (exclusive)
+        self.center_x = (self.x1 + self.x2) // 2
+        self.center_y = (self.y1 + self.y2) // 2
+
+    def intersects(self, other_room, buffer=1):
+        """ Checks if this room intersects with another room, including a buffer zone. """
+        # Check if the rectangles (plus buffer) overlap
+        return (self.x1 < other_room.x2 + buffer and
+                self.x2 + buffer > other_room.x1 and
+                self.y1 < other_room.y2 + buffer and
+                self.y2 + buffer > other_room.y1)
+
+
 class Maps:
+    # Constants
+    WALL = 1  # Represents a wall cell
+    FLOOR = 0  # Represents an empty floor/corridor cell
+
+    @staticmethod
+    def create_house(grid_width, grid_height, num_rooms, min_room_size=4, max_room_size=10, max_placement_attempts=500, corridor_width=1):
+        """
+        Generates a 2D list representing a map with rooms and corridors.
+
+        Args:
+            grid_width (int): The width of the map grid.
+            grid_height (int): The height of the map grid.
+            num_rooms (int): The target number of rooms to place.
+            min_room_size (int): The minimum width/height of a room.
+            max_room_size (int): The maximum width/height of a room.
+            max_placement_attempts (int): Max attempts to place rooms overall.
+
+        Returns:
+            np.ndarray: A 2D array (bitmap) where 1 represents a wall
+                         and 0 represents floor/empty space.
+        """
+        if not (grid_width > 0 and grid_height > 0 and num_rooms >= 0):
+            raise ValueError("Grid dimensions must be positive, num_rooms non-negative.")
+        if min_room_size > max_room_size:
+            raise ValueError("min_room_size cannot be greater than max_room_size.")
+        if max_room_size >= min(grid_width, grid_height) - 2:
+            print(f"Warning: max_room_size ({max_room_size}) is large relative to grid dimensions "
+                 f"({grid_width}x{grid_height}). Room placement might be difficult or fail.")
+
+        # 1. Initialize grid full of walls
+        grid = [[Maps.WALL for _ in range(grid_width)] for _ in range(grid_height)]
+
+        if num_rooms == 0:
+            return np.array(grid)  # Return empty grid if no rooms requested
+
+        placed_rooms = []
+        attempts = 0
+
+        # 2. Try placing rooms
+        while len(placed_rooms) < num_rooms and attempts < max_placement_attempts:
+            attempts += 1
+
+            # Generate random room dimensions
+            room_w = random.randint(min_room_size, max_room_size)
+            room_h = random.randint(min_room_size, max_room_size)
+
+            # Generate random position (ensure room stays within grid boundaries + 1 cell border)
+            max_x = grid_width - room_w - 1
+            max_y = grid_height - room_h - 1
+
+            if max_x <= 1 or max_y <= 1:  # Check if grid is too small for any room placement with border
+                if len(placed_rooms) == 0:  # Only raise error if we couldn't place *any* room
+                    raise ValueError(f"Grid {grid_width}x{grid_height} too small for "
+                                    f"room size {min_room_size}-{max_room_size} with border.")
+                else:  # Otherwise, just stop trying if space runs out
+                    print("Warning: Grid space potentially exhausted for new rooms.")
+                    break
+
+            room_x = random.randint(1, max_x)
+            room_y = random.randint(1, max_y)
+
+            # Create a potential new room object
+            new_room = Room(room_x, room_y, room_w, room_h)
+
+            # 3. Check for collisions with existing rooms (use a buffer)
+            collision = False
+            for existing_room in placed_rooms:
+                if new_room.intersects(existing_room, buffer=1):
+                    collision = True
+                    break
+
+            # 4. If no collision, place the room and connect it
+            if not collision:
+                Maps._create_room_on_grid(grid, new_room)
+
+                # 5. Connect to the previous room (if applicable)
+                if placed_rooms:  # If this is not the first room
+                    prev_room = placed_rooms[-1]
+                    Maps._connect_rooms(grid, new_room, prev_room, corridor_width)
+
+                placed_rooms.append(new_room)
+
+        if len(placed_rooms) < num_rooms:
+            print(f"Warning: Only placed {len(placed_rooms)} out of {num_rooms} desired rooms "
+                 f"after {max_placement_attempts} attempts.")
+
+        return np.array(grid)
+
+    @staticmethod
+    def _create_room_on_grid(grid, room):
+        """ Carves a room (sets cells to FLOOR) onto the grid. """
+        grid_height = len(grid)
+        grid_width = len(grid[0])
+        # Iterate within the room boundaries (exclusive of x2, y2)
+        for y in range(room.y1, room.y2):
+            for x in range(room.x1, room.x2):
+                # Basic bounds check (should be guaranteed by placement logic but safe)
+                if 0 <= y < grid_height and 0 <= x < grid_width:
+                    grid[y][x] = Maps.FLOOR
+
+    @staticmethod
+    def _create_h_corridor(grid, x1, x2, y, width):
+        """ Carves a horizontal corridor with specified width. """
+        grid_height = len(grid)
+        grid_width = len(grid[0])
+        half_width = width // 2
+
+        for y_offset in range(-half_width, half_width + 1):
+            current_y = y + y_offset
+            if 0 <= current_y < grid_height:
+                for x in range(min(x1, x2), max(x1, x2) + 1):
+                    if 0 <= x < grid_width:
+                        grid[current_y][x] = Maps.FLOOR
+
+    @staticmethod
+    def _create_v_corridor(grid, y1, y2, x, width):
+        """ Carves a vertical corridor with specified width. """
+        grid_height = len(grid)
+        grid_width = len(grid[0])
+        half_width = width // 2
+
+        for x_offset in range(-half_width, half_width + 1):
+            current_x = x + x_offset
+            if 0 <= current_x < grid_width:
+                for y in range(min(y1, y2), max(y1, y2) + 1):
+                    if 0 <= y < grid_height:
+                        grid[y][current_x] = Maps.FLOOR
+
+    @staticmethod
+    def _connect_rooms(grid, room1, room2, corridor_width):
+        """ Connects the centers of two rooms with an L-shaped corridor. """
+        center1_x, center1_y = room1.center_x, room1.center_y
+        center2_x, center2_y = room2.center_x, room2.center_y
+
+        # Randomly decide the turn direction
+        if random.random() < 0.5:
+            # Horizontal first
+            Maps._create_h_corridor(grid, center1_x, center2_x, center1_y, corridor_width)
+            Maps._create_v_corridor(grid, center1_y, center2_y, center2_x, corridor_width)
+        else:
+            # Vertical first
+            Maps._create_v_corridor(grid, center1_y, center2_y, center1_x, corridor_width)
+            Maps._create_h_corridor(grid, center1_x, center2_x, center2_y, corridor_width)
+
 
     @staticmethod
     def find_empty_spot(grid, cell_size=None):
@@ -124,11 +291,7 @@ class Maps:
         Args:
             maze: 2D numpy array representing the maze (0=path, 1=wall)
             swap_probability: Float between 0 and 1, the probability of swapping a cell's value
-
-        Returns:
-            Modified maze as a 2D numpy array
         """
-
         # Get maze dimensions
         height, width = maze.shape
 

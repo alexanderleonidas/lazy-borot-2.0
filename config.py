@@ -1,7 +1,4 @@
 from dataclasses import dataclass
-
-import numpy as np
-
 from maps import Maps
 
 @dataclass
@@ -13,13 +10,13 @@ class Config:
 
     # --- User Definable Grid Size ---
     # Change these values to set the number of cells in the grid
-    GRID_WIDTH = 35
-    GRID_HEIGHT = 35
+    GRID_WIDTH = 40
+    GRID_HEIGHT = 40
 
     # --- Fixed Window Size ---
     # Define the total window size in pixels. This will remain constant.
-    FIXED_WINDOW_WIDTH = 500  # Pixels
-    FIXED_WINDOW_HEIGHT = 500  # Pixels
+    FIXED_WINDOW_WIDTH = 600  # Pixels
+    FIXED_WINDOW_HEIGHT = 600  # Pixels
 
     # --- Calculated Cell Size ---
     # Calculate cell size dynamically to fit the desired grid into the fixed window
@@ -33,7 +30,9 @@ class Config:
     # --- Maze and Grid Setup ---
     # Generate maze using the desired grid dimensions
     # NOTE: Maps.generate_maze needs height first, then width
-    maze_grid = Maps.generate_maze(GRID_HEIGHT, GRID_WIDTH, complexity=0.02)
+    # maze_grid = Maps.generate_maze(GRID_HEIGHT, GRID_WIDTH, complexity=0.02)
+    # maze_grid = Maps.generate_house_layout(GRID_HEIGHT, GRID_WIDTH)
+    maze_grid = Maps.create_house(GRID_WIDTH, GRID_HEIGHT, 6, min_room_size=7, max_room_size=20, corridor_width=2)
 
     # --- Landmarks and Start Position ---
     # These functions now use the dynamically calculated CELL_SIZE

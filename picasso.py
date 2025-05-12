@@ -1,4 +1,4 @@
-import sys
+import random
 import pygame
 import numpy as np
 import math
@@ -14,9 +14,11 @@ class Picasso:
         self.safe_zone = np.array([540, 460])  # designated safe zone (end goal)
         self.screen = screen
         self.clock = pygame.time.Clock()
+        self.dust_surface = self._generate_static_dust()
 
-    def draw_map(self, robot, show_sensors=False):
-        self._draw_maze()
+    def draw_map(self, robot, show_sensors=False, show_dust=False):
+        self._draw_bitmap()
+        if show_dust: self._draw_dust(robot)
         if hasattr(robot, 'mapping') and robot.mapping:
             self._draw_occupancy_grid(robot.mapping)
         # Draw ground truth robot position last (or optionally disable)
@@ -38,7 +40,7 @@ class Picasso:
             self._draw_collision_marker(robot.last_collision_cell, robot.x, robot.y)
         self._draw_velocities(robot.left_velocity, robot.right_velocity, robot.theta)
 
-    def _draw_maze(self):
+    def _draw_bitmap(self):
         self.screen.fill(Config.WHITE)
         # Draw the maze
         for i in range(Config.GRID_HEIGHT):
@@ -47,7 +49,7 @@ class Picasso:
                 if Config.maze_grid[i, j] == 1:
                     pygame.draw.rect(self.screen, Config.BLACK, rect)
                 else:
-                    pygame.draw.rect(self.screen, Config.GRAY, rect)
+                    pygame.draw.rect(self.screen, Config.WHITE, rect)
 
     def _draw_robot(self, robot):
         x = int(robot.x)
@@ -278,3 +280,93 @@ class Picasso:
         surface = pygame.surfarray.make_surface(np.stack([grayscale] * 3, axis=-1).swapaxes(0, 1))
         surface = pygame.transform.scale(surface, (occupancy_grid.width * Config.CELL_SIZE, occupancy_grid.height * Config.CELL_SIZE))
         self.screen.blit(surface, (0, 0))
+
+    def _generate_static_dust(self):
+        """
+        Generates a static dust surface once at initialization and stores dust positions.
+
+        Returns:
+            pygame.Surface: Surface with dust particles drawn on it
+        """
+        dust_surface = pygame.Surface((Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT), pygame.SRCALPHA)
+        self.dust_particles = []  # Store dust particle positions
+
+        # Set dust density (percentage of empty cells that will have dust)
+        dust_density = 0.1
+        dust_size_range = (2, 2)
+
+        # Iterate through grid cells
+        for i in range(Config.GRID_HEIGHT):
+            for j in range(Config.GRID_WIDTH):
+                # Only add dust to empty cells
+                if Config.maze_grid[i, j] == 0:
+                    # Calculate how many dust particles to add to this cell
+                    dust_count = int(dust_density * Config.CELL_SIZE)
+
+                    # Calculate cell position
+                    cell_left = j * Config.CELL_SIZE
+                    cell_top = i * Config.CELL_SIZE
+
+                    for _ in range(dust_count):
+                        # Random position within the cell
+                        dust_x = cell_left + random.randint(0, Config.CELL_SIZE)
+                        dust_y = cell_top + random.randint(0, Config.CELL_SIZE)
+
+                        # Random dust properties
+                        dust_size = random.randint(dust_size_range[0], dust_size_range[1])
+                        dust_alpha = random.randint(20, 100)  # Random transparency
+
+                        # Create dust color with random alpha
+                        dust_color = (*Config.GRAY, dust_alpha)
+
+                        # Store the dust particle data
+                        self.dust_particles.append({
+                            'pos': (dust_x, dust_y),
+                            'size': dust_size,
+                            'color': dust_color,
+                            'collected': False
+                        })
+
+                        # Draw the dust particle
+                        pygame.draw.circle(dust_surface, dust_color, (dust_x, dust_y), dust_size)
+
+        return dust_surface
+
+    def _draw_dust(self, robot):
+        """
+        Draws dust particles and checks if the robot has collected any.
+
+        Args:
+            robot: The robot instance that can collect dust
+        """
+        # If robot doesn't have a dust_count attribute, add it
+        if not hasattr(robot, 'dust_count'):
+            robot.dust_count = 0
+
+        # Create a new surface for dust with alpha blending
+        updated_dust_surface = pygame.Surface((Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT), pygame.SRCALPHA)
+
+        # Check for collisions and redraw remaining dust
+        for dust in self.dust_particles:
+            if not dust['collected']:
+                # Check if robot is over the dust
+                dust_x, dust_y = dust['pos']
+                dist = math.sqrt((robot.x - dust_x) ** 2 + (robot.y - dust_y) ** 2)
+
+                if dist <= robot.radius:
+                    # Robot has collected this dust particle
+                    dust['collected'] = True
+                    robot.dust_count += 1
+                else:
+                    # Dust hasn't been collected, so draw it
+                    pygame.draw.circle(updated_dust_surface, dust['color'], dust['pos'], dust['size'])
+
+        # Update the dust surface
+        self.dust_surface = updated_dust_surface
+
+        # Draw the dust surface on the screen
+        self.screen.blit(self.dust_surface, (0, 0))
+
+        # Display dust count
+        dust_text = self.small_font.render(f"Dust Collected: {robot.dust_count}", True, Config.RED)
+        self.screen.blit(dust_text, (10, 10))

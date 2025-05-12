@@ -28,6 +28,7 @@ class Robot:
         self.last_collision_cell = None  # stores (i, j) of last obstacle collision
         self.path_history = []
         self.num_collisions = 0
+        self.dust_count = 0
         # self.max_history_length = 200
 
         # Wheel configuration
@@ -255,7 +256,7 @@ class Robot:
         :param action: Action to take
         :type action: Action
         """
-        if self.ann and isinstance(action, int):
+        if hasattr(self, 'ann') and isinstance(action, int):
             # Assuming the ANN output (action) is an integer representing the index of the Action enum
             # We need to map this integer back to the corresponding Action enum member
             try:
