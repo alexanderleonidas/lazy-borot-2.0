@@ -73,47 +73,6 @@ class Evolution:
                     noise = torch.randn_like(param) * (self.error_range * 2.0)
                     param.data += noise
 
-    def compute_individual_fitness_3(self, individual, robot):
-        import torch
-        from config import Config
-
-
-
-        # Map stats
-        grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else {}
-        confident_free = torch.tensor(grid_stats.get('confidence_ratio', 0), dtype=torch.float32)
-
-        # Filter uncertainty
-        if hasattr(robot, 'filter') and robot.filter.uncertainty_history:
-            cov = robot.filter.uncertainty_history[-1]
-            filter_cov = torch.tensor(cov['semi_major'] + cov['semi_minor'], dtype=torch.float32)
-        else:
-            filter_cov = torch.tensor(0.0)
-
-        # Episode totals
-        dust_reward = torch.tensor(robot.dust_collected(), dtype=torch.float32)
-        dist_traveled = torch.tensor(robot.get_distance_traveled(), dtype=torch.float32)
-        energy_used = torch.tensor(robot.total_energy_used, dtype=torch.float32)
-        collisions = torch.tensor(robot.num_collisions, dtype=torch.float32)
-
-        # Optional: penalize being idle
-        idle_penalty = torch.tensor(0.0)
-        if dist_traveled.item() < 50.0:
-            idle_penalty = torch.tensor(50.0)
-
-        # Final fitness
-        fitness = (  # Stronger penalty for not reaching the goal
-                0.1 * dist_traveled +  # Encourage movement
-                0.1 * confident_free +  # Encourage confident mapping
-                10.0 * dust_reward +  # Strong reward for collecting dust
-                -2.0 * collisions +  # Heavier penalty for collisions
-                -0.02 * energy_used +  # Slight penalty for energy usage
-                -0.05 * filter_cov +  # Penalty for being uncertain
-                -idle_penalty  # Penalize being idle
-        )
-
-        individual.fitness += fitness.item()
-
     def compute_individual_fitness_2(self, individual, robot):
         """
         Fitness combines:
@@ -159,7 +118,82 @@ class Evolution:
         fitness_value = torch.dot(x, a).item()
         individual.add_fitness(fitness_value)
 
-    def select_parents(self, method='tournament'):
+    def compute_individual_fitness_3(self, individual, robot):
+        grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else {}
+        confident_free = torch.tensor(grid_stats.get('confidence_ratio', 0), dtype=torch.float32)
+
+        # Filter uncertainty
+        if hasattr(robot, 'filter') and robot.filter.uncertainty_history:
+            cov = robot.filter.uncertainty_history[-1]
+            filter_cov = torch.tensor(cov['semi_major'] + cov['semi_minor'], dtype=torch.float32)
+        else:
+            filter_cov = torch.tensor(0.0)
+
+        # Episode totals
+        dust_reward = torch.tensor(robot.dust_collected(), dtype=torch.float32)
+        dist_traveled = torch.tensor(robot.get_distance_traveled(), dtype=torch.float32)
+        energy_used = torch.tensor(robot.total_energy_used, dtype=torch.float32)
+        collisions = torch.tensor(robot.num_collisions, dtype=torch.float32)
+
+        # Optional: penalize being idle
+        idle_penalty = torch.tensor(0.0)
+        if dist_traveled.item() < 50.0:
+            idle_penalty = torch.tensor(50.0)
+
+        # Final fitness
+        fitness = (  # Stronger penalty for not reaching the goal
+                0.1 * dist_traveled +  # Encourage movement
+                0.1 * confident_free +  # Encourage confident mapping
+                10.0 * dust_reward +  # Strong reward for collecting dust
+                -2.0 * collisions +  # Heavier penalty for collisions
+                -0.02 * energy_used +  # Slight penalty for energy usage
+                -0.05 * filter_cov +  # Penalty for being uncertain
+                -idle_penalty  # Penalize being idle
+        )
+
+        individual.fitness += fitness.item()
+
+
+    def compute_individual_fitness_4(self, individual, robot):
+        # Retrieve relevant stats
+        grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else {}
+        confident_free = torch.tensor(grid_stats.get('confidence_ratio', 0), dtype=torch.float32)
+
+        if hasattr(robot, 'filter') and robot.filter.uncertainty_history:
+            cov = robot.filter.uncertainty_history[-1]
+            filter_cov = torch.tensor(cov['semi_major'] + cov['semi_minor'], dtype=torch.float32)
+        else:
+            filter_cov = torch.tensor(0.0)
+
+        dust_reward = torch.tensor(robot.dust_collected(), dtype=torch.float32)
+        dist_traveled = torch.tensor(robot.get_distance_traveled(), dtype=torch.float32)
+        energy_used = torch.tensor(robot.total_energy_used, dtype=torch.float32)
+        collisions = torch.tensor(robot.num_collisions, dtype=torch.float32)
+
+        idle_penalty = torch.tensor(0.0)
+        if dist_traveled.item() < 50.0:
+            idle_penalty = torch.tensor(50.0)
+
+        # Dynamic weights adjustment
+        w_dust = 10.0 / (1.0 + dust_reward.item())  # decay as more dust is collected
+        w_confidence = 0.2 + 0.8 * confident_free.item()  # increase as confidence improves
+        w_cov = -0.05 * (1.0 + filter_cov.item())  # increase penalty as uncertainty rises
+        w_collisions = -2.0 * (1.0 + collisions.item())  # heavier penalty with more collisions
+
+        # Final fitness with dynamic weights
+        fitness = (
+            0.1 * dist_traveled +
+            w_confidence * confident_free +
+            w_dust * dust_reward +
+            w_collisions +
+            -0.02 * energy_used +
+            w_cov +
+            -idle_penalty
+        )
+
+        individual.fitness += fitness.item()
+
+    def select_parents(self, method):
         num_parents = int(len(self.population) * self.select_percentage)
         if method == 'max':
             sorted_population = sorted(self.population, key=lambda ind: ind.fitness, reverse=True)
@@ -181,7 +215,7 @@ class Evolution:
         else:
             raise ValueError("Invalid selection type. Use 'max', 'random' or 'tournament'.")
 
-    def reproduce(self, parents, method='crossover'):
+    def reproduce(self, parents, method):
         num_children = len(self.population)
         children = []
 
@@ -225,7 +259,7 @@ class Evolution:
                     noise = torch.randn_like(param) * self.error_range
                     param.data += noise
 
-    def create_next_generation(self, reproduction_type='crossover', selection_type='max', num_elites=2):
+    def create_next_generation(self, reproduction_type='crossover', selection_type='tournament', num_elites=2):
         selected_parents = self.select_parents(method=selection_type)
         children = self.reproduce(selected_parents, method=reproduction_type)
         self.mutate(children)
@@ -235,44 +269,4 @@ class Evolution:
         for individual in self.population:
             individual.reset_fitness()
 
-    def compute_individual_fitness_4(self, individual, robot):
-        import torch
-        from config import Config
-
-        # Retrieve relevant stats
-        grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else {}
-        confident_free = torch.tensor(grid_stats.get('confidence_ratio', 0), dtype=torch.float32)
-
-        if hasattr(robot, 'filter') and robot.filter.uncertainty_history:
-            cov = robot.filter.uncertainty_history[-1]
-            filter_cov = torch.tensor(cov['semi_major'] + cov['semi_minor'], dtype=torch.float32)
-        else:
-            filter_cov = torch.tensor(0.0)
-
-        dust_reward = torch.tensor(robot.dust_collected(), dtype=torch.float32)
-        dist_traveled = torch.tensor(robot.get_distance_traveled(), dtype=torch.float32)
-        energy_used = torch.tensor(robot.total_energy_used, dtype=torch.float32)
-        collisions = torch.tensor(robot.num_collisions, dtype=torch.float32)
-
-        idle_penalty = torch.tensor(0.0)
-        if dist_traveled.item() < 50.0:
-            idle_penalty = torch.tensor(50.0)
-
-        # Dynamic weights adjustment
-        w_dust = 10.0 / (1.0 + dust_reward.item())  # decay as more dust is collected
-        w_confidence = 0.2 + 0.8 * confident_free.item()  # increase as confidence improves
-        w_cov = -0.05 * (1.0 + filter_cov.item())  # increase penalty as uncertainty rises
-        w_collisions = -2.0 * (1.0 + collisions.item())  # heavier penalty with more collisions
-
-        # Final fitness with dynamic weights
-        fitness = (
-            0.1 * dist_traveled +
-            w_confidence * confident_free +
-            w_dust * dust_reward +
-            w_collisions +
-            -0.02 * energy_used +
-            w_cov +
-            -idle_penalty
-        )
-
-        individual.fitness += fitness.item()
+    
