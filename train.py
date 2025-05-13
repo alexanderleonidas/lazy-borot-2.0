@@ -61,18 +61,23 @@ def train(save_results=False, plot_results=False, show_screen=False):
         avg_fitness_over_generations.append(current_avg_fitness)
         best_fitness_over_generations.append(current_best_fitness)
 
+
+        if (generation + 1) % 50 == 0 and save_results:
+            checkpoint_dir = f"results/{run_id}_checkpoints"
+            os.makedirs(checkpoint_dir, exist_ok=True)
+
+            best = max(evolution.population, key=lambda ind: ind.fitness)
+            fname = f"checkpoints/{run_id}_gen{generation+1}.pth"
+            save_model(run_id, best.brain, filename=fname)
+
+            print(f"Saved checkpoint: {checkpoint_dir}/{run_id}_gen{generation+1}.pth")
+
         evolution.create_next_generation()
 
         # Save fitness data for the current generation
         if save_results: save_generation_fitness(run_id, generation + 1, current_avg_fitness, current_best_fitness)
 
         print(f"Generation {generation + 1} completed. Avg Fitness: {current_avg_fitness:.4f}, Best Fitness: {current_best_fitness:.4f}")
-        if (generation + 1) % 30 == 0:
-            os.makedirs("./checkpoints", exist_ok=True)
-            best = max(evolution.population, key=lambda ind: ind.fitness)
-            fname = f"./checkpoints/{run_id}_gen{generation+1}.pth"
-            save_model(run_id, best.brain, filename=fname)
-            print(f"→ Saved checkpoint: {fname}")
 
     print("Training finished.")
     print(f"Average fitness over generations: {sum(avg_fitness_over_generations) / len(avg_fitness_over_generations)}")
