@@ -239,6 +239,11 @@ class Evolution:
         import torch
         from config import Config
 
+        # Helper function for min-max normalization
+        def normalize(value, min_val, max_val):
+            EPS = 1e-6
+            return (value - min_val) / (max_val - min_val + EPS)
+
         # Retrieve relevant stats
         grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else {}
         confident_free = torch.tensor(grid_stats.get('confidence_ratio', 0), dtype=torch.float32)
@@ -258,19 +263,27 @@ class Evolution:
         if dist_traveled.item() < 50.0:
             idle_penalty = torch.tensor(50.0)
 
-        # Dynamic weights adjustment
-        w_dust = 10.0 / (1.0 + dust_reward.item())  # decay as more dust is collected
-        w_confidence = 0.2 + 0.8 * confident_free.item()  # increase as confidence improves
-        w_cov = -0.05 * (1.0 + filter_cov.item())  # increase penalty as uncertainty rises
-        w_collisions = -2.0 * (1.0 + collisions.item())  # heavier penalty with more collisions
+        # Normalize metrics (use conservative fixed ranges)
+        dust_norm     = normalize(dust_reward.item(),      0, 20)   # Max 20 dust
+        dist_norm     = normalize(dist_traveled.item(),    0, 100)  # Max 100 distance
+        conf_norm     = normalize(confident_free.item(),   0, 1)    # Already a ratio
+        cov_norm      = normalize(filter_cov.item(),       0, 100)  # Max 100 for uncertainty
+        coll_norm     = normalize(collisions.item(),       0, 10)   # Max 10 collisions
+        energy_norm   = normalize(energy_used.item(),      0, 1000) # Max 1000 energy
+
+        # Dynamic weights based on normalized values
+        w_dust       = 10.0 / (1.0 + dust_norm)
+        w_confidence = 0.2 + 0.8 * conf_norm
+        w_cov        = -0.05 * (1.0 + cov_norm)
+        w_collisions = -2.0 * (1.0 + coll_norm)
 
         # Final fitness with dynamic weights
         fitness = (
-            0.1 * dist_traveled +
-            w_confidence * confident_free +
-            w_dust * dust_reward +
+            0.1 * dist_norm +
+            w_confidence * conf_norm +
+            w_dust * dust_norm +
             w_collisions +
-            -0.02 * energy_used +
+            -0.02 * energy_norm +
             w_cov +
             -idle_penalty
         )
