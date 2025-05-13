@@ -241,3 +241,7 @@ def load_model(run_id=None, model=None, filename="robot_brain.pt", filepath=None
     model.load_state_dict(state_dict)
 
     print(f"Model successfully loaded from {filepath}")
+
+def normalize(value, min_val, max_val):
+    EPS = 1e-6
+    return (value - min_val) / (max_val - min_val + EPS)

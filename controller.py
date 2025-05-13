@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from config import Config
+from utils import normalize
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
@@ -74,10 +75,6 @@ class Evolution:
                     param.data += noise
 
     def compute_individual_fitness_3(self, individual, robot):
-        import torch
-        from config import Config
-
-
 
         # Map stats
         grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else {}
@@ -225,7 +222,7 @@ class Evolution:
                     noise = torch.randn_like(param) * self.error_range
                     param.data += noise
 
-    def create_next_generation(self, reproduction_type='crossover', selection_type='max', num_elites=2):
+    def create_next_generation(self, reproduction_type='crossover', selection_type='tournament', num_elites=2):
         selected_parents = self.select_parents(method=selection_type)
         children = self.reproduce(selected_parents, method=reproduction_type)
         self.mutate(children)
@@ -236,13 +233,6 @@ class Evolution:
             individual.reset_fitness()
 
     def compute_individual_fitness_4(self, individual, robot):
-        import torch
-        from config import Config
-
-        # Helper function for min-max normalization
-        def normalize(value, min_val, max_val):
-            EPS = 1e-6
-            return (value - min_val) / (max_val - min_val + EPS)
 
         # Retrieve relevant stats
         grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else {}
@@ -263,7 +253,6 @@ class Evolution:
         if dist_traveled.item() < 50.0:
             idle_penalty = torch.tensor(50.0)
 
-        # Normalize metrics (use conservative fixed ranges)
         dust_norm     = normalize(dust_reward.item(),      0, 20)   # Max 20 dust
         dist_norm     = normalize(dist_traveled.item(),    0, 100)  # Max 100 distance
         conf_norm     = normalize(confident_free.item(),   0, 1)    # Already a ratio
