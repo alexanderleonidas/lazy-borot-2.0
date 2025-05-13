@@ -24,18 +24,22 @@ class Robot:
         self.theta = theta  # in radians
         self.radius = 5.  # for drawing the robot
 
+        self.collected_dust = set()
+        self.total_energy_used = 0.0
+
+
         # Extra Variables
         self.last_collision_cell = None  # stores (i, j) of last obstacle collision
         self.path_history = []
         self.num_collisions = 0
-        self.dust_count = 0
         # self.max_history_length = 200
+
 
         # Wheel configuration
         self.max_speed = 100
         self.dv = 10  # pixels per second
         self.wheel_distance = self.radius*2  # distance between wheels in pixels
-        self. right_velocity = 0
+        self.right_velocity = 0
         self.left_velocity = 0
 
         # Sensor configuration: simulating 3 sensors (front, left, right)
@@ -57,6 +61,12 @@ class Robot:
         if ann:
             self.ann = ann
 
+    def reset_episode_stats(self):
+        self.collected_dust = set()
+        self.total_energy_used = 0.0
+        self.num_collisions = 0
+        self.path_history = []
+
     def update_motion(self, dt, maze):
         """
         Update the robot’s pose using the exact differential drive motion model,
@@ -67,6 +77,8 @@ class Robot:
         v_l = self.left_velocity
         v = (v_r + v_l) / 2.0
         omega = (v_r - v_l) / self.wheel_distance
+        speed = np.sqrt(v** 2 + omega ** 2)  # assuming v = linear, w = angular velocity
+        self.total_energy_used += speed
 
         # Compute the new pose based on kinematics.
         if abs(omega) < 1e-6:
@@ -112,7 +124,15 @@ class Robot:
         #     self.path_history.pop(0)
 
         self.get_sensor_readings(maze)
+        # Check if robot is close enough to a dust particle
+        for dust in Config.dust_particles:
+            dx, dy = dust['pos'][0] - self.x, dust['pos'][1] - self.y
+            if (dx ** 2 + dy ** 2) < 36:  # 6px radius threshold
+                dust['collected'] = True
+                self.collected_dust.add(dust['pos'])
 
+    def dust_collected(self):
+        return len(self.collected_dust)
 
     def circle_collides(self, x, y, maze):
         """
@@ -280,19 +300,19 @@ class Robot:
         else:
             raise ValueError("Invalid action. Use Action enum or ANN for velocity control.")
 
-
     def get_ann_inputs(self):
-        """
-        Get the inputs for the ANN.
-        This includes sensor readings, robot pose, and a bias term.
-        """
-        # TODO: think about using the localisation and mapping information as inputs for the ANN
-        # Normalize sensor readings to [0, 1]
-        normalized_readings = [(reading[0] / self.sensor_range) for reading in self.sensor_readings]
-        # Normalize Robot pose
-        pose = [self.x / Config.WINDOW_WIDTH, self.y / Config.WINDOW_HEIGHT, self.theta / (2 * math.pi)]
-        # Combine with bias
-        return normalized_readings + pose + [1.0]
+        norm_dists = [min(d, self.sensor_range) / self.sensor_range for d, _ in self.sensor_readings]
+
+        orientation = [np.sin(self.theta), np.cos(self.theta)]
+
+        goal_x, goal_y = Config.goal_pos
+        dx = goal_x - self.x
+        dy = goal_y - self.y
+        distance_to_goal = np.sqrt(dx ** 2 + dy ** 2)
+        max_dist = np.sqrt(Config.WINDOW_WIDTH ** 2 + Config.WINDOW_HEIGHT ** 2)
+        norm_goal_dist = distance_to_goal / max_dist
+
+        return np.array(norm_dists + orientation + [norm_goal_dist, 1.0])
 
     def get_speed(self):
         return (self.right_velocity + self.left_velocity) / 2

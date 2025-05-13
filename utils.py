@@ -51,6 +51,28 @@ def save_run(run_id, robot, time_step=None, maze=None, filter_instance=None, fil
             json.dump(maze.tolist(), f, indent=4)
 
 
+# --- Helper function to plot fitness ---
+def plot_fitness_progress(avg_fitness, best_fitness, run_id, generations_to_plot=None):
+    if generations_to_plot is None:
+        generations_to_plot = len(avg_fitness)
+
+    gens = range(1, generations_to_plot + 1)
+    plt.figure(figsize=(12, 6))
+    plt.plot(gens, avg_fitness[:generations_to_plot], label='Average Fitness', marker='o', linestyle='-')
+    plt.plot(gens, best_fitness[:generations_to_plot], label='Best Fitness', marker='x', linestyle='--')
+    plt.xlabel('Generation')
+    plt.ylabel('Fitness')
+    plt.title(f'Fitness Over Generations (Run ID: {run_id})')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    results_dir = f"results_{run_id}"
+    os.makedirs(results_dir, exist_ok=True)
+    plt.savefig(os.path.join(results_dir, f"fitness_plot_{run_id}.png"))
+    print(f"Fitness plot saved to {os.path.join(results_dir, f'fitness_plot_{run_id}.png')}")
+    plt.show()
+
+
 def plot_robot_pose_data(run_id, filename="robot_pose_data.csv", ellipse_step=10):
     """
     Plots the robot's true pose, filtered pose (if available), uncertainty ellipses,

@@ -1,7 +1,6 @@
 import numpy as np
 import random
 
-
 class Room:
     """ Represents a rectangular room on the grid. """
 
@@ -390,7 +389,7 @@ class Maps:
     def find_corner_landmarks(grid, cell_size):
         """
         Find corners in a binary grid where 1 represents an obstacle, and calculate
-        their Cartesian coordinates.
+        their Cartesian coordinates. Only add a corner if it is adjacent to a wall cell.
         """
         if not grid.any():
             return []
@@ -428,6 +427,18 @@ class Maps:
             "SE": (cell_size, cell_size)  # Bottom-right corner
         }
 
+        # Helper function to check if a Cartesian coordinate is adjacent to a wall cell
+        def has_wall_neighbor_fn(corner_x, corner_y):
+            grid_x = int(corner_x / cell_size)
+            grid_y = int(corner_y / cell_size)
+            for dy in [-1, 0, 1]:
+                for dx in [-1, 0, 1]:
+                    ny = grid_y + dy
+                    nx = grid_x + dx
+                    if 0 <= ny < rows and 0 <= nx < cols and grid[ny][nx] == 1:
+                        return True
+            return False
+
         # Check each cell that could potentially be part of a 2x2 grid
         for y in range(rows - 1):
             for x in range(cols - 1):
@@ -442,7 +453,6 @@ class Maps:
                 # Check for each corner pattern
                 for corner_type, pattern in corner_patterns.items():
                     # A corner exists when the 2x2 grid matches the pattern
-                    # For example, a NW corner exists when the top-left is 1 and the rest are 0
                     matches = True
                     for i in range(4):
                         if grid_2x2[i] != pattern[i]:
@@ -457,66 +467,164 @@ class Maps:
                         # Get the offset for this corner type
                         offset_x, offset_y = corner_offsets[corner_type]
 
-                        # Add the corner to the list
-                        corners.append((base_x + offset_x, base_y + offset_y))
+                        # Only add if adjacent to a wall cell
+                        corner_x = base_x + offset_x
+                        corner_y = base_y + offset_y
+                        if has_wall_neighbor_fn(corner_x, corner_y):
+                            corners.append((corner_x, corner_y))
 
         # Edge cases - check cells at the boundaries of the grid
 
         # Top edge (except corners)
         for x in range(1, cols - 1):
-            if grid[0][x] == 1 and grid[0][x - 1] == 0:  # Left edge of obstacle
-                corners.append((x * cell_size, 0))
-            if grid[0][x] == 1 and grid[0][x + 1] == 0:  # Right edge of obstacle
-                corners.append(((x + 1) * cell_size, 0))
+            if grid[0][x] == 1 and grid[0][x - 1] == 0:
+                corner_x = x * cell_size
+                corner_y = 0
+                if has_wall_neighbor_fn(corner_x, corner_y):
+                    corners.append((corner_x, corner_y))
+            if grid[0][x] == 1 and grid[0][x + 1] == 0:
+                corner_x = (x + 1) * cell_size
+                corner_y = 0
+                if has_wall_neighbor_fn(corner_x, corner_y):
+                    corners.append((corner_x, corner_y))
 
         # Bottom edge (except corners)
         for x in range(1, cols - 1):
-            if grid[rows - 1][x] == 1 and grid[rows - 1][x - 1] == 0:  # Left edge of obstacle
-                corners.append((x * cell_size, rows * cell_size))
-            if grid[rows - 1][x] == 1 and grid[rows - 1][x + 1] == 0:  # Right edge of obstacle
-                corners.append(((x + 1) * cell_size, rows * cell_size))
+            if grid[rows - 1][x] == 1 and grid[rows - 1][x - 1] == 0:
+                corner_x = x * cell_size
+                corner_y = rows * cell_size
+                if has_wall_neighbor_fn(corner_x, corner_y):
+                    corners.append((corner_x, corner_y))
+            if grid[rows - 1][x] == 1 and grid[rows - 1][x + 1] == 0:
+                corner_x = (x + 1) * cell_size
+                corner_y = rows * cell_size
+                if has_wall_neighbor_fn(corner_x, corner_y):
+                    corners.append((corner_x, corner_y))
 
         # Left edge (except corners)
         for y in range(1, rows - 1):
-            if grid[y][0] == 1 and grid[y - 1][0] == 0:  # Top edge of obstacle
-                corners.append((0, y * cell_size))
-            if grid[y][0] == 1 and grid[y + 1][0] == 0:  # Bottom edge of obstacle
-                corners.append((0, (y + 1) * cell_size))
+            if grid[y][0] == 1 and grid[y - 1][0] == 0:
+                corner_x = 0
+                corner_y = y * cell_size
+                if has_wall_neighbor_fn(corner_x, corner_y):
+                    corners.append((corner_x, corner_y))
+            if grid[y][0] == 1 and grid[y + 1][0] == 0:
+                corner_x = 0
+                corner_y = (y + 1) * cell_size
+                if has_wall_neighbor_fn(corner_x, corner_y):
+                    corners.append((corner_x, corner_y))
 
         # Right edge (except corners)
         for y in range(1, rows - 1):
-            if grid[y][cols - 1] == 1 and grid[y - 1][cols - 1] == 0:  # Top edge of obstacle
-                corners.append((cols * cell_size, y * cell_size))
-            if grid[y][cols - 1] == 1 and grid[y + 1][cols - 1] == 0:  # Bottom edge of obstacle
-                corners.append((cols * cell_size, (y + 1) * cell_size))
+            if grid[y][cols - 1] == 1 and grid[y - 1][cols - 1] == 0:
+                corner_x = cols * cell_size
+                corner_y = y * cell_size
+                if has_wall_neighbor_fn(corner_x, corner_y):
+                    corners.append((corner_x, corner_y))
+            if grid[y][cols - 1] == 1 and grid[y + 1][cols - 1] == 0:
+                corner_x = cols * cell_size
+                corner_y = (y + 1) * cell_size
+                if has_wall_neighbor_fn(corner_x, corner_y):
+                    corners.append((corner_x, corner_y))
 
         # Corner cases of the grid
         if grid[0][0] == 1:
-            corners.append((0, 0))  # Top-left corner of the grid
+            corner_x = 0
+            corner_y = 0
+            if has_wall_neighbor_fn(corner_x, corner_y):
+                corners.append((corner_x, corner_y))  # Top-left corner of the grid
         if grid[0][cols - 1] == 1:
-            corners.append((cols * cell_size, 0))  # Top-right corner of the grid
+            corner_x = cols * cell_size
+            corner_y = 0
+            if has_wall_neighbor_fn(corner_x, corner_y):
+                corners.append((corner_x, corner_y))  # Top-right corner of the grid
         if grid[rows - 1][0] == 1:
-            corners.append((0, rows * cell_size))  # Bottom-left corner of the grid
+            corner_x = 0
+            corner_y = rows * cell_size
+            if has_wall_neighbor_fn(corner_x, corner_y):
+                corners.append((corner_x, corner_y))  # Bottom-left corner of the grid
         if grid[rows - 1][cols - 1] == 1:
-            corners.append((cols * cell_size, rows * cell_size))  # Bottom-right corner of the grid
+            corner_x = cols * cell_size
+            corner_y = rows * cell_size
+            if has_wall_neighbor_fn(corner_x, corner_y):
+                corners.append((corner_x, corner_y))  # Bottom-right corner of the grid
 
         # Interior corners
         for y in range(1, rows - 1):
             for x in range(1, cols - 1):
-                if grid[y][x] == 0:  # Only check empty cells
-                    # Check for corners formed by obstacle configurations
+                if grid[y][x] == 0:
                     # NW corner
                     if grid[y - 1][x] == 1 and grid[y][x - 1] == 1:
-                        corners.append((x * cell_size, y * cell_size))
+                        corner_x = x * cell_size
+                        corner_y = y * cell_size
+                        if has_wall_neighbor_fn(corner_x, corner_y):
+                            corners.append((corner_x, corner_y))
                     # NE corner
                     if grid[y - 1][x] == 1 and grid[y][x + 1] == 1:
-                        corners.append(((x + 1) * cell_size, y * cell_size))
+                        corner_x = (x + 1) * cell_size
+                        corner_y = y * cell_size
+                        if has_wall_neighbor_fn(corner_x, corner_y):
+                            corners.append((corner_x, corner_y))
                     # SW corner
                     if grid[y + 1][x] == 1 and grid[y][x - 1] == 1:
-                        corners.append((x * cell_size, (y + 1) * cell_size))
+                        corner_x = x * cell_size
+                        corner_y = (y + 1) * cell_size
+                        if has_wall_neighbor_fn(corner_x, corner_y):
+                            corners.append((corner_x, corner_y))
                     # SE corner
                     if grid[y + 1][x] == 1 and grid[y][x + 1] == 1:
-                        corners.append(((x + 1) * cell_size, (y + 1) * cell_size))
+                        corner_x = (x + 1) * cell_size
+                        corner_y = (y + 1) * cell_size
+                        if has_wall_neighbor_fn(corner_x, corner_y):
+                            corners.append((corner_x, corner_y))
 
         # Remove duplicate corners
         return list(set(corners))
+
+    @staticmethod
+    def generate_static_dust(height, width, grid, cell_size, color):
+        """
+        Generates a static dust surface once at initialization and stores dust positions.
+
+        Returns:
+            pygame.Surface: Surface with dust particles drawn on it
+        """
+        dust_particles = []  # Store dust particle positions
+
+        # Set dust density (percentage of empty cells that will have dust)
+        dust_density = 0.1
+        dust_size_range = (2, 2)
+
+        # Iterate through grid cells
+        for i in range(height):
+            for j in range(width):
+                # Only add dust to empty cells
+                if grid[i, j] == 0:
+                    # Calculate how many dust particles to add to this cell
+                    dust_count = int(dust_density * cell_size)
+
+                    # Calculate cell position
+                    cell_left = j * cell_size
+                    cell_top = i * cell_size
+
+                    for _ in range(dust_count):
+                        # Random position within the cell
+                        dust_x = cell_left + random.randint(0, cell_size)
+                        dust_y = cell_top + random.randint(0, cell_size)
+
+                        # Random dust properties
+                        dust_size = random.randint(dust_size_range[0], dust_size_range[1])
+                        dust_alpha = random.randint(20, 100)  # Random transparency
+
+                        # Create dust color with random alpha
+                        dust_color = (*color, dust_alpha)
+
+                        # Store the dust particle data
+                        dust_particles.append({
+                            'pos': (dust_x, dust_y),
+                            'size': dust_size,
+                            'color': dust_color,
+                            'collected': False
+                        })
+
+        return dust_particles

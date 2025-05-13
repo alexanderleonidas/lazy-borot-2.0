@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from config import Config
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
@@ -71,24 +73,50 @@ class Evolution:
                     noise = torch.randn_like(param) * (self.error_range * 2.0)
                     param.data += noise
 
-    def compute_individual_fitness(self, individual, robot):
-        grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else None
-        filter_covariance = robot.filter.uncertainty_history[-1]['semi_major'] + robot.filter.uncertainty_history[-1][
-            'semi_minor'] if hasattr(robot, 'filter') else None
+    def compute_individual_fitness_3(self, individual, robot):
+        import torch
+        from config import Config
 
-        x = torch.tensor([
-            robot.get_distance_traveled(),
-            len(robot.visible_measurements),
-            sum([r for r, _ in robot.sensor_readings]) - len(robot.sensor_readings) * robot.sensor_range,
-            grid_stats['confident_free'] if grid_stats else 0,
-            -filter_covariance if filter_covariance else 0,
-            -robot.num_collisions
-        ], device=device)
+        # Position & goal
+        robot_pos = torch.tensor([robot.x, robot.y], dtype=torch.float32)
+        goal_pos = torch.tensor(Config.goal_pos, dtype=torch.float32)
+        goal_distance = torch.norm(goal_pos - robot_pos)
 
-        a = torch.tensor([0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001], device=device)
+        # Map stats
+        grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else {}
+        confident_free = torch.tensor(grid_stats.get('confidence_ratio', 0), dtype=torch.float32)
 
-        fitness_value = torch.dot(x, a).item()
-        individual.add_fitness(fitness_value)
+        # Filter uncertainty
+        if hasattr(robot, 'filter') and robot.filter.uncertainty_history:
+            cov = robot.filter.uncertainty_history[-1]
+            filter_cov = torch.tensor(cov['semi_major'] + cov['semi_minor'], dtype=torch.float32)
+        else:
+            filter_cov = torch.tensor(0.0)
+
+        # Episode totals
+        dust_reward = torch.tensor(robot.dust_collected(), dtype=torch.float32)
+        dist_traveled = torch.tensor(robot.get_distance_traveled(), dtype=torch.float32)
+        energy_used = torch.tensor(robot.total_energy_used, dtype=torch.float32)
+        collisions = torch.tensor(robot.num_collisions, dtype=torch.float32)
+
+        # Optional: penalize being idle
+        idle_penalty = torch.tensor(0.0)
+        if dist_traveled.item() < 50.0:
+            idle_penalty = torch.tensor(50.0)
+
+        # Final fitness
+        fitness = (
+                -0.1 * goal_distance +  # Stronger penalty for not reaching the goal
+                0.1 * dist_traveled +  # Encourage movement
+                0.1 * confident_free +  # Encourage confident mapping
+                10.0 * dust_reward +  # Strong reward for collecting dust
+                -2.0 * collisions +  # Heavier penalty for collisions
+                -0.02 * energy_used +  # Slight penalty for energy usage
+                -0.05 * filter_cov +  # Penalty for being uncertain
+                -idle_penalty  # Penalize being idle
+        )
+
+        individual.fitness += fitness.item()
 
     def compute_individual_fitness_2(self, individual, robot):
         """
