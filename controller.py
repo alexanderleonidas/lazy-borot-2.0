@@ -130,7 +130,7 @@ class Evolution:
             filter_cov = torch.tensor(0.0)
 
         # Episode totals
-        dust_reward = torch.tensor(robot.dust_collected(), dtype=torch.float32)
+        dust_reward = torch.tensor(robot.dust_collected(percentage=True), dtype=torch.float32)
         dist_traveled = torch.tensor(robot.get_distance_traveled(), dtype=torch.float32)
         energy_used = torch.tensor(robot.total_energy_used, dtype=torch.float32)
         collisions = torch.tensor(robot.num_collisions, dtype=torch.float32)

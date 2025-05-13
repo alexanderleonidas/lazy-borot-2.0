@@ -131,8 +131,11 @@ class Robot:
                 dust['collected'] = True
                 self.collected_dust.add(dust['pos'])
 
-    def dust_collected(self):
-        return len(self.collected_dust)
+    def dust_collected(self, percentage=False):
+            if percentage:
+                return len(self.collected_dust) / len(Config.dust_particles)
+            else:
+                return len(self.collected_dust)
 
     def circle_collides(self, x, y, maze):
         """
