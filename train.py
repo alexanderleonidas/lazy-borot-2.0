@@ -1,12 +1,12 @@
 import time
 import pygame
-from config import Config # Assuming this holds WINDOW_WIDTH, WINDOW_HEIGHT, maze_grid, start_pos
+from config import Config 
 from maps import Maps
-from picasso import Picasso # Your drawing class
-from robot import Robot # Your robot class
-from controller import Evolution # Your evolution class (handles Individuals with brains)
-from utils import save_generation_fitness, save_model, plot_fitness_progress # Your utility functions
-import os # For creating results directory
+from picasso import Picasso 
+from robot import Robot
+from controller import Evolution 
+from utils import save_generation_fitness, save_model, plot_fitness_progress
+import os
 
 
 
@@ -144,7 +144,5 @@ def train(save_results=False, plot_results=False, show_screen=False):
 
 
 if __name__ == "__main__":
-    # Make sure Config.py has necessary attributes like:
-    # WINDOW_WIDTH, WINDOW_HEIGHT, start_pos, maze_grid
-    # And that goal_pos and dust_positions can be set as demonstrated.
+
     train(save_results=True, plot_results=True, show_screen=False) # Set show_screen=True to watch
