@@ -15,12 +15,12 @@ def train(save_results=False, plot_results=False, show_screen=False):
     fps = 30 # Simulation speed, not necessarily display FPS if unthrottled
 
     # Evolutionary Parameters
-    population_size = 15
+    population_size = 50
     selection_percentage = 0.5
     error_range = 0.1  # Assuming this is for mutation or crossover
     mutate_percentage = 0.2
     time_steps = 500  # Duration of each individual's simulation
-    generations = 200 # Number of generations to train
+    generations = 400 # Number of generations to train
 
     # Initialize Evolution
     # Make sure your Evolution class takes these parameters
@@ -88,7 +88,7 @@ def train(save_results=False, plot_results=False, show_screen=False):
 
             # --- End of simulation for one individual ---
             # Fitness should be computed based on the robot's performance over all time_steps
-            evolution.compute_individual_fitness_3(individual, robot) # Ensure this uses the robot's final state
+            evolution.compute_individual_fitness_4(individual, robot) # Ensure this uses the robot's final state
             generation_fitness_values.append(individual.fitness)
             print(f"  Individual {i+1} Fitness: {individual.fitness:.4f}")
 
@@ -147,4 +147,4 @@ if __name__ == "__main__":
     # Make sure Config.py has necessary attributes like:
     # WINDOW_WIDTH, WINDOW_HEIGHT, start_pos, maze_grid
     # And that goal_pos and dust_positions can be set as demonstrated.
-    train(save_results=True, plot_results=True, show_screen=True) # Set show_screen=True to watch
+    train(save_results=True, plot_results=True, show_screen=False) # Set show_screen=True to watch

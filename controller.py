@@ -77,10 +77,7 @@ class Evolution:
         import torch
         from config import Config
 
-        # Position & goal
-        robot_pos = torch.tensor([robot.x, robot.y], dtype=torch.float32)
-        goal_pos = torch.tensor(Config.goal_pos, dtype=torch.float32)
-        goal_distance = torch.norm(goal_pos - robot_pos)
+
 
         # Map stats
         grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else {}
@@ -105,8 +102,7 @@ class Evolution:
             idle_penalty = torch.tensor(50.0)
 
         # Final fitness
-        fitness = (
-                -0.1 * goal_distance +  # Stronger penalty for not reaching the goal
+        fitness = (  # Stronger penalty for not reaching the goal
                 0.1 * dist_traveled +  # Encourage movement
                 0.1 * confident_free +  # Encourage confident mapping
                 10.0 * dust_reward +  # Strong reward for collecting dust
@@ -238,3 +234,45 @@ class Evolution:
         self.population = children
         for individual in self.population:
             individual.reset_fitness()
+
+    def compute_individual_fitness_4(self, individual, robot):
+        import torch
+        from config import Config
+
+        # Retrieve relevant stats
+        grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else {}
+        confident_free = torch.tensor(grid_stats.get('confidence_ratio', 0), dtype=torch.float32)
+
+        if hasattr(robot, 'filter') and robot.filter.uncertainty_history:
+            cov = robot.filter.uncertainty_history[-1]
+            filter_cov = torch.tensor(cov['semi_major'] + cov['semi_minor'], dtype=torch.float32)
+        else:
+            filter_cov = torch.tensor(0.0)
+
+        dust_reward = torch.tensor(robot.dust_collected(), dtype=torch.float32)
+        dist_traveled = torch.tensor(robot.get_distance_traveled(), dtype=torch.float32)
+        energy_used = torch.tensor(robot.total_energy_used, dtype=torch.float32)
+        collisions = torch.tensor(robot.num_collisions, dtype=torch.float32)
+
+        idle_penalty = torch.tensor(0.0)
+        if dist_traveled.item() < 50.0:
+            idle_penalty = torch.tensor(50.0)
+
+        # Dynamic weights adjustment
+        w_dust = 10.0 / (1.0 + dust_reward.item())  # decay as more dust is collected
+        w_confidence = 0.2 + 0.8 * confident_free.item()  # increase as confidence improves
+        w_cov = -0.05 * (1.0 + filter_cov.item())  # increase penalty as uncertainty rises
+        w_collisions = -2.0 * (1.0 + collisions.item())  # heavier penalty with more collisions
+
+        # Final fitness with dynamic weights
+        fitness = (
+            0.1 * dist_traveled +
+            w_confidence * confident_free +
+            w_dust * dust_reward +
+            w_collisions +
+            -0.02 * energy_used +
+            w_cov +
+            -idle_penalty
+        )
+
+        individual.fitness += fitness.item()
