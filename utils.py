@@ -128,7 +128,7 @@ def plot_robot_pose_data(run_id, filename="robot_pose_data.csv", ellipse_step=10
                 angle_rad = d['uncertainty_angle']
                 angle_deg = np.degrees(angle_rad)
 
-                ellipse = Ellipse(xy=center, width=1.5 * semi_major, height=1.5 * semi_minor,
+                ellipse = Ellipse(xy=center, width=0.5 * semi_major, height=0.5 * semi_minor,
                                   angle=angle_deg, edgecolor='green', fc='None', lw=1)
                 ax.add_patch(ellipse)
 

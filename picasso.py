@@ -22,7 +22,7 @@ class Picasso:
             self._draw_occupancy_grid(robot.mapping)
         if show_dust: self._draw_dust(robot)
 
-        # Draw ground truth robot position last (or optionally disable)
+        # Draw ground truth robot position
         if show_sensors: self._draw_sensor_readings(robot)
         self._draw_visible_landmarks(robot)
         self._draw_robot(robot)
@@ -30,7 +30,7 @@ class Picasso:
         self._draw_landmarks()
 
         # Draw Kalman Filter related elements
-        if hasattr(robot, 'filter') and robot.filter:
+        if hasattr(robot, 'filter'):
             # Draw uncertainty ellipse based on filter's covariance
             self._draw_uncertainty_ellipse_history(robot)
             # Draw belief history if available
@@ -214,7 +214,7 @@ class Picasso:
                 draw_segment = True
                 segment_count = 0
 
-    def _draw_uncertainty_ellipse_history(self, robot, max_history_draw=20, max_alpha_outline=100):
+    def _draw_uncertainty_ellipse_history(self, robot, max_history_draw=50, max_alpha_outline=100):
         """
         Draws a history of the robot's positional uncertainty ellipses (OUTLINE ONLY).
         Outlines fade out based on their age.
@@ -241,7 +241,7 @@ class Picasso:
                 center_x, center_y = int(ellipse_data['center'][0]), int(ellipse_data['center'][1])
                 semi_major = ellipse_data['semi_major']
                 semi_minor = ellipse_data['semi_minor']
-                angle_deg = ellipse_data['angle_deg']
+                angle_deg = ellipse_data['angle_rad']
             except (KeyError, IndexError, TypeError) as e:
                 continue  
 
