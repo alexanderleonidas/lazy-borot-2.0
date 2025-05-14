@@ -75,40 +75,33 @@ class Evolution:
                     param.data += noise
 
     def compute_individual_fitness_3(self, individual, robot):
-        # Map stats
-        grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else {}
-        confident_free = torch.tensor(grid_stats.get('confidence_ratio', 0), dtype=torch.float32)
+        # Retrieve metrics
+        dust_collected = robot.dust_collected(percentage=True)
+        distance_traveled = robot.get_distance_traveled()
+        collisions = robot.num_collisions
+        energy_used = robot.total_energy_used
+        confidence_ratio = robot.mapping.get_confidence_stats().get('confidence_ratio', 0) if hasattr(robot, 'mapping') else 0
+        uncertainty = robot.filter.uncertainty_history[-1]['semi_major'] + robot.filter.uncertainty_history[-1][
+            'semi_minor'] if hasattr(robot, 'filter') else 0
 
-        # Filter uncertainty
-        if hasattr(robot, 'filter') and robot.filter.uncertainty_history:
-            cov = robot.filter.uncertainty_history[-1]
-            filter_cov = torch.tensor(cov['semi_major'] + cov['semi_minor'], dtype=torch.float32)
-        else:
-            filter_cov = torch.tensor(0.0)
+        # Normalize metrics
+        dust_norm = dust_collected
+        distance_norm = distance_traveled / 1000 # Assume max 1000 distance
+        energy_norm = energy_used / 1000  # Assume max 1000 energy
+        collisions_norm = collisions / 10  # Assume max 10 collisions
+        uncertainty_norm = uncertainty / 100  # Assume max 100 uncertainty
 
-        # Episode totals
-        dust_reward = torch.tensor(robot.dust_collected(), dtype=torch.float32)
-        dist_traveled = torch.tensor(robot.get_distance_traveled(), dtype=torch.float32)
-        energy_used = torch.tensor(robot.total_energy_used, dtype=torch.float32)
-        collisions = torch.tensor(robot.num_collisions, dtype=torch.float32)
-
-        # Optional: penalize being idle
-        idle_penalty = torch.tensor(0.0)
-        if dist_traveled.item() < 50.0:
-            idle_penalty = torch.tensor(50.0)
-
-        # Final fitness
-        fitness = (  # Stronger penalty for not reaching the goal
-                0.1 * dist_traveled +  # Encourage movement
-                0.1 * confident_free +  # Encourage confident mapping
-                10.0 * dust_reward +  # Strong reward for collecting dust
-                -2.0 * collisions +  # Heavier penalty for collisions
-                -0.02 * energy_used +  # Slight penalty for energy usage
-                -0.05 * filter_cov +  # Penalty for being uncertain
-                -idle_penalty  # Penalize being idle
+        # Compute fitness
+        fitness = (
+                10 * dust_norm +  # Reward for dust collection
+                0.1 * distance_norm +  # Reward for exploration
+                0.2 * confidence_ratio -  # Reward for mapping confidence
+                2 * collisions_norm -  # Penalty for collisions
+                0.05 * energy_norm -  # Penalty for energy usage
+                0.1 * uncertainty_norm  # Penalty for uncertainty
         )
 
-        individual.fitness += fitness.item()
+        individual.add_fitness(fitness)
 
     def compute_individual_fitness_2(self, individual, robot):
         """

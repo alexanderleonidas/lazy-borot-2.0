@@ -77,8 +77,10 @@ class Robot:
         v_l = self.left_velocity
         v = (v_r + v_l) / 2.0
         omega = (v_r - v_l) / self.wheel_distance
-        speed = np.sqrt(v** 2 + omega ** 2)  # assuming v = linear, w = angular velocity
-        self.total_energy_used += speed
+        # Update energy calculation
+        acceleration = abs(v_r - v_l) / self.wheel_distance  # Approximate acceleration
+        power = v * acceleration  # Power = force (proportional to acceleration) × velocity
+        self.total_energy_used += power * dt  # Energy = power × time
 
         # Compute the new pose based on kinematics.
         if abs(omega) < 1e-6:
