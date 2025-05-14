@@ -239,7 +239,7 @@ class Picasso:
                 center_x, center_y = int(ellipse_data['center'][0]), int(ellipse_data['center'][1])
                 semi_major = ellipse_data['semi_major']
                 semi_minor = ellipse_data['semi_minor']
-                angle_deg = ellipse_data['angle_deg']
+                angle_deg = ellipse_data['angle_rad']
             except (KeyError, IndexError, TypeError) as e:
                 continue  
 

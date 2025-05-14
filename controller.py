@@ -75,11 +75,6 @@ class Evolution:
                     param.data += noise
 
     def compute_individual_fitness_3(self, individual, robot):
-        import torch
-        from config import Config
-
-
-
         # Map stats
         grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else {}
         confident_free = torch.tensor(grid_stats.get('confidence_ratio', 0), dtype=torch.float32)

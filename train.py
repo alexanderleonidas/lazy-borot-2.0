@@ -1,5 +1,6 @@
 import time
 import pygame
+import copy
 from config import Config 
 from maps import Maps
 from picasso import Picasso 
@@ -35,11 +36,9 @@ def train(save_results=False, plot_results=False, show_screen=False):
 
         generation_fitness_values = []
 
-        import copy
         original_dust_particles = copy.deepcopy(Config.dust_particles)
 
         for i, individual in enumerate(evolution.population):
-            # Set random goal for THIS individual's evaluation
             if show_screen:
                 pygame.init()
                 screen = pygame.display.set_mode((Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT))
@@ -108,6 +107,16 @@ def train(save_results=False, plot_results=False, show_screen=False):
 
         avg_fitness_over_generations.append(current_avg_fitness)
         best_fitness_over_generations.append(current_best_fitness)
+
+        if (generation + 1) % 50 == 0 and save_results:
+            checkpoint_dir = f"results/{run_id}_checkpoints"
+            os.makedirs(checkpoint_dir, exist_ok=True)
+
+            best = max(evolution.population, key=lambda ind: ind.fitness)
+            fname = f"checkpoints/{run_id}_gen{generation + 1}.pth"
+            save_model(run_id, best.brain, filename=fname)
+
+            print(f"Saved checkpoint: {checkpoint_dir}/{run_id}_gen{generation + 1}.pth")
 
         # Create the next generation based on fitness
         evolution.create_next_generation()
