@@ -306,18 +306,11 @@ class Robot:
             raise ValueError("Invalid action. Use Action enum or ANN for velocity control.")
 
     def get_ann_inputs(self):
-        norm_dists = [min(d, self.sensor_range) / self.sensor_range for d, _ in self.sensor_readings]
-
-        orientation = [np.sin(self.theta), np.cos(self.theta)]
-
-        goal_x, goal_y = Config.goal_pos
-        dx = goal_x - self.x
-        dy = goal_y - self.y
-        distance_to_goal = np.sqrt(dx ** 2 + dy ** 2)
-        max_dist = np.sqrt(Config.WINDOW_WIDTH ** 2 + Config.WINDOW_HEIGHT ** 2)
-        norm_goal_dist = distance_to_goal / max_dist
-
-        return np.array(norm_dists + orientation + [norm_goal_dist, 1.0])
+        normalized_readings = [(reading[0] / self.sensor_range) for reading in self.sensor_readings]
+        # Normalize Robot pose
+        pose = [self.x / Config.WINDOW_WIDTH, self.y / Config.WINDOW_HEIGHT, self.theta / (2 * math.pi)]
+        # Combine with bias
+        return np.array(normalized_readings + pose + [1.0])
 
     def get_speed(self):
         return (self.right_velocity + self.left_velocity) / 2
