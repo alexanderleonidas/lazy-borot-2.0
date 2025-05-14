@@ -103,51 +103,6 @@ class Evolution:
 
         individual.add_fitness(fitness)
 
-    def compute_individual_fitness_2(self, individual, robot):
-        """
-        Fitness combines:
-         - dust collected (reward),
-         - distance traveled (exploration),
-         - time steps / coverage (visiting new cells),
-         - mapping confidence ratio,
-         - localization uncertainty (penalty),
-         - collisions (penalty).
-        """
-        # raw metrics
-        dust       = robot.dust_count
-        distance   = robot.get_distance_traveled()
-        coverage   = len(robot.path_history)                    
-        grid_stats = robot.mapping.get_confidence_stats() \
-                       if hasattr(robot, 'mapping') else None
-        confidence = grid_stats['confidence_ratio'] if grid_stats else 0.0
-        cov        = (robot.filter.uncertainty_history[-1]['semi_major']
-                      + robot.filter.uncertainty_history[-1]['semi_minor']) \
-                      if hasattr(robot, 'filter') else 0.0
-        collisions = robot.num_collisions
-
-        # feature vector
-        x = torch.tensor([ 
-            dust,
-            distance,
-            coverage,
-            confidence,
-            -cov,       # less uncertainty is better
-            -collisions # fewer collisions is better
-        ], device=device, dtype=torch.float32)
-
-        
-        a = torch.tensor([
-            1.0,    # dust
-            0.01,   # distance
-            0.01,  # coverage 
-            0.1,    # mapping confidence
-            0.1,    # localization
-            0.5     # safety
-        ], device=device, dtype=torch.float32)
-
-        fitness_value = torch.dot(x, a).item()
-        individual.add_fitness(fitness_value)
-
     def select_parents(self, method='tournament'):
         num_parents = int(len(self.population) * self.select_percentage)
         if method == 'max':
@@ -232,7 +187,6 @@ class Evolution:
 
         idle_raw = 50.0 if dist_traveled.item() < 50.0 else 0.0
 
-        fitness = (weights[0] * dust_reward +  weights[1] * dist_traveled + weights[2] * energy_used + weights[3] * collisions + 
-                   weights[4] * idle_raw)
+        fitness = (weights[0] * dust_reward +  weights[1] * dist_traveled - weights[2] * energy_used - weights[3] * collisions - idle_raw)
 
         individual.fitness += fitness
