@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from config import Config
-from utils import normalize
+from utils import *
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
@@ -75,6 +75,10 @@ class Evolution:
                     param.data += noise
 
     def compute_individual_fitness_3(self, individual, robot):
+        import torch
+        from config import Config
+
+
 
         # Map stats
         grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else {}
@@ -222,7 +226,7 @@ class Evolution:
                     noise = torch.randn_like(param) * self.error_range
                     param.data += noise
 
-    def create_next_generation(self, reproduction_type='crossover', selection_type='tournament', num_elites=2):
+    def create_next_generation(self, reproduction_type='crossover', selection_type='max', num_elites=2):
         selected_parents = self.select_parents(method=selection_type)
         children = self.reproduce(selected_parents, method=reproduction_type)
         self.mutate(children)
@@ -233,6 +237,13 @@ class Evolution:
             individual.reset_fitness()
 
     def compute_individual_fitness_4(self, individual, robot):
+        import torch
+        from config import Config
+
+        # Helper function for min-max normalization
+        def normalize(value, min_val, max_val):
+            EPS = 1e-6
+            return (value - min_val) / (max_val - min_val + EPS)
 
         # Retrieve relevant stats
         grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else {}
@@ -249,10 +260,11 @@ class Evolution:
         energy_used = torch.tensor(robot.total_energy_used, dtype=torch.float32)
         collisions = torch.tensor(robot.num_collisions, dtype=torch.float32)
 
-        idle_penalty = torch.tensor(0.0)
-        if dist_traveled.item() < 50.0:
-            idle_penalty = torch.tensor(50.0)
+        # Idle penalty normalization
+        idle_raw = 50.0 if dist_traveled.item() < 50.0 else 0.0
+        idle_norm = normalize(idle_raw, 0, 50.0)
 
+        # Normalize metrics (use conservative fixed ranges)
         dust_norm     = normalize(dust_reward.item(),      0, 20)   # Max 20 dust
         dist_norm     = normalize(dist_traveled.item(),    0, 100)  # Max 100 distance
         conf_norm     = normalize(confident_free.item(),   0, 1)    # Already a ratio
@@ -274,7 +286,7 @@ class Evolution:
             w_collisions +
             -0.02 * energy_norm +
             w_cov +
-            -idle_penalty
+            -idle_norm
         )
 
-        individual.fitness += fitness.item()
+        individual.fitness += fitness

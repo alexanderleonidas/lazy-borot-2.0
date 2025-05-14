@@ -35,6 +35,9 @@ def train(save_results=False, plot_results=False, show_screen=False):
 
         generation_fitness_values = []
 
+        import copy
+        original_dust_particles = copy.deepcopy(Config.dust_particles)
+
         for i, individual in enumerate(evolution.population):
             # Set random goal for THIS individual's evaluation
             if show_screen:
@@ -91,7 +94,8 @@ def train(save_results=False, plot_results=False, show_screen=False):
             evolution.compute_individual_fitness_4(individual, robot) # Ensure this uses the robot's final state
             generation_fitness_values.append(individual.fitness)
             print(f"  Individual {i+1} Fitness: {individual.fitness:.4f}")
-
+            Config.dust_particles = copy.deepcopy(original_dust_particles)
+            robot.dust_particles = Config.dust_particles
 
         # --- End of generation ---
         if not generation_fitness_values: # Should not happen if population_size > 0
@@ -145,4 +149,4 @@ def train(save_results=False, plot_results=False, show_screen=False):
 
 if __name__ == "__main__":
 
-    train(save_results=True, plot_results=True, show_screen=False) # Set show_screen=True to watch
+    train(save_results=True, plot_results=True, show_screen=True) # Set show_screen=True to watch
