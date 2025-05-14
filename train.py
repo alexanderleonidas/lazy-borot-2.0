@@ -90,7 +90,7 @@ def train(save_results=False, plot_results=False, show_screen=False):
 
             # --- End of simulation for one individual ---
             # Fitness should be computed based on the robot's performance over all time_steps
-            evolution.compute_individual_fitness_4(individual, robot) # Ensure this uses the robot's final state
+            evolution.compute_individual_fitness_4(individual, robot, weights=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0,]) # Ensure this uses the robot's final state
             generation_fitness_values.append(individual.fitness)
             print(f"  Individual {i+1} Fitness: {individual.fitness:.4f}")
             Config.dust_particles = copy.deepcopy(original_dust_particles)

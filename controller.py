@@ -224,57 +224,15 @@ class Evolution:
         for individual in self.population:
             individual.reset_fitness()
 
-    def compute_individual_fitness_4(self, individual, robot):
-        import torch
-        from config import Config
-
-        # Helper function for min-max normalization
-        def normalize(value, min_val, max_val):
-            EPS = 1e-6
-            return (value - min_val) / (max_val - min_val + EPS)
-
-        # Retrieve relevant stats
-        grid_stats = robot.mapping.get_confidence_stats() if hasattr(robot, 'mapping') else {}
-        confident_free = torch.tensor(grid_stats.get('confidence_ratio', 0), dtype=torch.float32)
-
-        if hasattr(robot, 'filter') and robot.filter.uncertainty_history:
-            cov = robot.filter.uncertainty_history[-1]
-            filter_cov = torch.tensor(cov['semi_major'] + cov['semi_minor'], dtype=torch.float32)
-        else:
-            filter_cov = torch.tensor(0.0)
-
+    def compute_individual_fitness_4(self, individual, robot, weights):
         dust_reward = torch.tensor(robot.dust_collected(), dtype=torch.float32)
         dist_traveled = torch.tensor(robot.get_distance_traveled(), dtype=torch.float32)
         energy_used = torch.tensor(robot.total_energy_used, dtype=torch.float32)
         collisions = torch.tensor(robot.num_collisions, dtype=torch.float32)
 
-        # Idle penalty normalization
         idle_raw = 50.0 if dist_traveled.item() < 50.0 else 0.0
-        idle_norm = normalize(idle_raw, 0, 50.0)
 
-        # Normalize metrics (use conservative fixed ranges)
-        dust_norm     = normalize(dust_reward.item(),      0, 20)   # Max 20 dust
-        dist_norm     = normalize(dist_traveled.item(),    0, 100)  # Max 100 distance
-        conf_norm     = normalize(confident_free.item(),   0, 1)    # Already a ratio
-        cov_norm      = normalize(filter_cov.item(),       0, 100)  # Max 100 for uncertainty
-        coll_norm     = normalize(collisions.item(),       0, 10)   # Max 10 collisions
-        energy_norm   = normalize(energy_used.item(),      0, 1000) # Max 1000 energy
-
-        # Dynamic weights based on normalized values
-        w_dust       = 10.0 / (1.0 + dust_norm)
-        w_confidence = 0.2 + 0.8 * conf_norm
-        w_cov        = -0.05 * (1.0 + cov_norm)
-        w_collisions = -2.0 * (1.0 + coll_norm)
-
-        # Final fitness with dynamic weights
-        fitness = (
-            0.1 * dist_norm +
-            w_confidence * conf_norm +
-            w_dust * dust_norm +
-            w_collisions +
-            -0.02 * energy_norm +
-            w_cov +
-            -idle_norm
-        )
+        fitness = (weights[0] * dust_reward +  weights[1] * dist_traveled + weights[2] * energy_used + weights[3] * collisions + 
+                   weights[4] * idle_raw)
 
         individual.fitness += fitness
