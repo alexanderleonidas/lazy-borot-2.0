@@ -1,6 +1,9 @@
 from enum import Enum
 import numpy as np
 import math
+
+from IPython.core.events import post_execute
+
 from config import Config
 from kalman_filter import KalmanFilter
 from extended_kalman_filter import ExtendedKalmanFilter
@@ -132,6 +135,13 @@ class Robot:
             if (dx ** 2 + dy ** 2) < 36:  # 6px radius threshold
                 dust['collected'] = True
                 self.collected_dust.add(dust['pos'])
+
+        if hasattr(self, 'filter') and self.filter is not None:
+            self.filter.pose_tracking(dt)  # EKF update
+
+        if hasattr(self, 'mapping') and self.mapping is not None:
+            # Assuming filter.pose is the estimated pose (mean of EKF)
+            self.mapping.update(self.filter.get_estimated_pose(), self.sensor_readings)
 
     def dust_collected(self, percentage=False):
             if percentage:
@@ -308,7 +318,12 @@ class Robot:
     def get_ann_inputs(self):
         normalized_readings = [(reading[0] / self.sensor_range) for reading in self.sensor_readings]
         # Normalize Robot pose
-        pose = self.filter.get_estimated_pose() if hasattr(self, 'filter') else None
+        if hasattr(self, 'filter') and self.filter is not None:
+            pose = self.filter.get_estimated_pose()
+            pose = [pose[0]/Config.GRID_WIDTH, pose[1]/Config.GRID_HEIGHT, pose[2] / (2 * math.pi)]
+        else:
+            pose = self.get_pose()
+            pose = [pose[0] / Config.GRID_WIDTH, pose[1] / Config.GRID_HEIGHT, pose[2] / (2 * math.pi)]
         # Combine with bias
         return np.array(normalized_readings + pose + [1.0])
 
