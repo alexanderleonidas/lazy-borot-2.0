@@ -53,15 +53,7 @@ class Evolution:
     def create_diverse_population(self):
         """Create a diverse initial population using multiple initialization strategies."""
         for i, individual in enumerate(self.population):
-            # Apply different initialization strategies based on index
-            if i % 3 == 0:
-                # Strategy 1: Xavier/Glorot initialization
-                for name, param in individual.brain.named_parameters():
-                    if 'weight' in name:
-                        nn.init.xavier_uniform_(param.data)
-                    elif 'bias' in name:
-                        nn.init.zeros_(param.data)
-            elif i % 3 == 1:
+            if i % 3 == 1:
                 # Strategy 2: Kaiming/He initialization
                 for name, param in individual.brain.named_parameters():
                     if 'weight' in name:
@@ -187,6 +179,7 @@ class Evolution:
 
         idle_raw = 50.0 if dist_traveled.item() < 50.0 else 0.0
 
-        fitness = (weights[0] * dust_reward +  weights[1] * dist_traveled - weights[2] * energy_used - weights[3] * collisions - idle_raw)
+        fitness = (weights[0] * dust_reward +  weights[1] * dist_traveled - weights[2] * 
+                   energy_used - weights[3] * collisions - weights[4] * idle_raw)
 
         individual.fitness += fitness

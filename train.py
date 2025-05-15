@@ -16,12 +16,12 @@ def train(save_results=False, plot_results=False, show_screen=False):
     fps = 30 # Simulation speed, not necessarily display FPS if unthrottled
 
     # Evolutionary Parameters
-    population_size = 50
+    population_size = 40
     selection_percentage = 0.5
     error_range = 0.1  # Assuming this is for mutation or crossover
     mutate_percentage = 0.2
-    time_steps = 500  # Duration of each individual's simulation
-    generations = 400 # Number of generations to train
+    time_steps = 5000  # Duration of each individual's simulation
+    generations = 200 # Number of generations to train
 
     # Initialize Evolution
     # Make sure your Evolution class takes these parameters
@@ -90,7 +90,7 @@ def train(save_results=False, plot_results=False, show_screen=False):
 
             # --- End of simulation for one individual ---
             # Fitness should be computed based on the robot's performance over all time_steps
-            evolution.compute_individual_fitness_4(individual, robot, weights=[0.0, 0.0, 0.0, 0.0]) # Ensure this uses the robot's final state
+            evolution.compute_individual_fitness_4(individual, robot, weights=[10.0, 25.0, 5, 8.0, 50.0])
             generation_fitness_values.append(individual.fitness)
             print(f"  Individual {i+1} Fitness: {individual.fitness:.4f}")
             Config.dust_particles = copy.deepcopy(original_dust_particles)
@@ -158,4 +158,4 @@ def train(save_results=False, plot_results=False, show_screen=False):
 
 if __name__ == "__main__":
 
-    train(save_results=True, plot_results=True, show_screen=True) # Set show_screen=True to watch
+    train(save_results=True, plot_results=True, show_screen=False) # Set show_screen=True to watch
