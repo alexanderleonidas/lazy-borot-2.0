@@ -1,4 +1,6 @@
 from enum import Enum
+from typing import Tuple
+
 import numpy as np
 import math
 
@@ -72,7 +74,7 @@ class Robot:
 
     def update_motion(self, dt, maze):
         """
-        Update the robot’s pose using the exact differential drive motion model,
+        Update the robot’s actual pose using the exact differential drive motion model,
         with strict collision detection that checks the robot’s circular boundary.
         """
         # Compute linear and angular velocities.
@@ -105,7 +107,7 @@ class Robot:
 
 
         # --- Strict collision detection using the robot's circular footprint ---
-        # First, try to update fully if the new position is free.
+        # Try to update fully if the new position is free.
         if not self.circle_collides(new_x, new_y, maze):
             self.x, self.y = new_x, new_y
             self.last_collision_cell = None
@@ -129,7 +131,7 @@ class Robot:
         #     self.path_history.pop(0)
 
         self.get_sensor_readings(maze)
-        # Check if robot is close enough to a dust particle
+        # Check if the robot is close enough to a dust particle
         for dust in Config.dust_particles:
             dx, dy = dust['pos'][0] - self.x, dust['pos'][1] - self.y
             if (dx ** 2 + dy ** 2) < 36:  # 6px radius threshold
@@ -242,7 +244,7 @@ class Robot:
         Returns the distance to the first obstacle or max_range.
         """
         distance = 0
-        # More robust step size, could be 1 or smaller for finer grids
+        # More robust step size, it could be 1 or smaller for finer grids
         step_size = 1.0
         while distance < max_range:
             # Calculate point along the ray
@@ -257,7 +259,7 @@ class Robot:
             if not (0 <= test_x_cell < Config.GRID_WIDTH and 0 <= test_y_cell < Config.GRID_HEIGHT):
                 return max_range  # Hit boundary, treat as max range
 
-            # Check for obstacle
+            # Check for an obstacle
             if maze[test_y_cell, test_x_cell] == 1:
                 return distance  # Hit obstacle
 
@@ -291,29 +293,34 @@ class Robot:
         :param action: Action to take
         :type action: Action
         """
-        if hasattr(self, 'ann') and isinstance(action, int):
-            # Assuming the ANN output (action) is an integer representing the index of the Action enum
-            # We need to map this integer back to the corresponding Action enum member
-            try:
-                action = list(Action)[action]
-            except ValueError:
-                raise ValueError(f"Invalid action index received from ANN: {action}. Must be a valid Action enum index.")
-
-        if action == Action.INCREASE_RIGHT:
-            self.right_velocity = min(self.right_velocity + self.dv, self.max_speed)
-        elif action == Action.DECREASE_RIGHT:
-            self.right_velocity = max(self.right_velocity - self.dv, -self.max_speed)
-        elif action == Action.INCREASE_LEFT:
-            self.left_velocity = min(self.left_velocity + self.dv, self.max_speed)
-        elif action == Action.DECREASE_LEFT:
-            self.left_velocity = max(self.left_velocity - self.dv, -self.max_speed)
-        elif action == Action.BREAK:
-            self.left_velocity = 0
-            self.right_velocity = 0
-        elif action == Action.NOTHING:
-            pass
+        if hasattr(self, 'ann'):
+            if isinstance(action, int):
+                try:
+                    action = list(Action)[action]
+                except ValueError:
+                    raise ValueError(f"Invalid action index received from ANN: {action}. Must be a valid Action enum index.")
+            elif isinstance(action, tuple):
+                try:
+                    self.left_velocity = action[0]
+                    self.right_velocity = action[1]
+                except ValueError:
+                    raise ValueError(f"Invalid action tuple received from ANN: {action}. Must be a tuple of (left_velocity, right_velocity).")
         else:
-            raise ValueError("Invalid action. Use Action enum or ANN for velocity control.")
+            if action == Action.INCREASE_RIGHT:
+                self.right_velocity = min(self.right_velocity + self.dv, self.max_speed)
+            elif action == Action.DECREASE_RIGHT:
+                self.right_velocity = max(self.right_velocity - self.dv, -self.max_speed)
+            elif action == Action.INCREASE_LEFT:
+                self.left_velocity = min(self.left_velocity + self.dv, self.max_speed)
+            elif action == Action.DECREASE_LEFT:
+                self.left_velocity = max(self.left_velocity - self.dv, -self.max_speed)
+            elif action == Action.BREAK:
+                self.left_velocity = 0
+                self.right_velocity = 0
+            elif action == Action.NOTHING:
+                pass
+            else:
+                raise ValueError("Invalid action. Use Action enum or ANN for velocity control.")
 
     def get_ann_inputs(self):
         normalized_readings = [(reading[0] / self.sensor_range) for reading in self.sensor_readings]

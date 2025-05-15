@@ -15,10 +15,10 @@ def main(save_results=False, plot_results=False):
     picasso = Picasso(screen)
     pygame.display.set_caption("Robot Simulator")
     # Create a robot instance at the starting position.
-    robot = Robot(Config.start_pos[0], Config.start_pos[1], 0, filter_type='EKF', mapping=False, ann=False)
+    robot = Robot(Config.start_pos[0], Config.start_pos[1], 0, filter_type='EKF', mapping=False, ann=True)
     if hasattr(robot, 'ann'):
         brain = RobotBrain().to(device)
-        load_model(run_id='1746749158', model=brain)
+        load_model(model=brain, filepath='results/1747311072_checkpoints/1747311072_gen50.pt')
     # Main simulation loop
     running = True
     time_step = 0

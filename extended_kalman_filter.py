@@ -154,13 +154,11 @@ class ExtendedKalmanFilter:
         Calculates the parameters for the uncertainty ellipse based on the
         positional (x, y) covariance. (Unchanged from original)
 
-        Args:
-            confidence_sigma (float): The number of standard deviations
-                                      to define the ellipse boundary (e.g., 2.0 for ~95%).
 
-        Returns:
-            tuple: (semi_major_axis, semi_minor_axis, angle_degrees) or None if invalid.
-                   Angle is degrees counter-clockwise from the positive x-axis.
+        :param confidence_sigma: The number of standard deviations to define the ellipse boundary (e.g., 2.0 for ~95%).
+        :type confidence_sigma: float
+        :return: A tuple containing the semi-major axis, semi-minor axis, and angle of the ellipse in degrees.
+                 The angle is measured counter-clockwise from the positive x-axis.
         """
         cov_xy = self.covariance[0:2, 0:2]
         try:
