@@ -232,7 +232,10 @@ class KalmanFilter:
             # print(f"\rError calculating ellipse parameters: {e}", end='', flush=True)
             return None
 
-
-
+    def get_estimated_pose(self):
+        """
+        Returns a copy of the estimated pose.
+        """
+        return self.pose.copy()
     
 

@@ -308,7 +308,7 @@ class Robot:
     def get_ann_inputs(self):
         normalized_readings = [(reading[0] / self.sensor_range) for reading in self.sensor_readings]
         # Normalize Robot pose
-        pose = [self.x / Config.WINDOW_WIDTH, self.y / Config.WINDOW_HEIGHT, self.theta / (2 * math.pi)]
+        pose = self.filter.get_estimated_pose() if hasattr(self, 'filter') else None
         # Combine with bias
         return np.array(normalized_readings + pose + [1.0])
 
